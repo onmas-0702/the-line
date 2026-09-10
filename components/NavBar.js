@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Mic, NotebookPen, User, LogIn } from "lucide-react";
+import { Home, Mic, LogIn } from "lucide-react";
 import { SITE_NAME } from "@/lib/mockData";
 
 const links = [
   { href: "/", label: "홈", icon: Home },
-  { href: "/record", label: "녹음/믹싱", icon: Mic },
-  { href: "/notes", label: "영감노트", icon: NotebookPen },
-  { href: "/mypage", label: "마이페이지", icon: User },
+  { href: "/record", label: "녹음/업로드", icon: Mic },
 ];
 
 export default function NavBar() {

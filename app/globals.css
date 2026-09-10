@@ -1,9 +1,31 @@
 @import "tailwindcss";
 
+/*
+ * 디자인 토큰. 지금은 깔끔한 기본 톤(amber/stone)만 쓰지만,
+ * 색상을 이 변수들로만 참조해두면 나중에 [data-theme="retro"] 같은
+ * 속성을 <html>에 추가해서 값만 갈아끼우는 방식으로
+ * 레트로 감성 스킨을 이 구조를 크게 바꾸지 않고 얹을 수 있습니다.
+ */
 :root {
   --background: #fafaf9;
   --foreground: #1c1917;
+  --accent: #b45309; /* amber-700 */
+  --accent-foreground: #ffffff;
+  --card: #ffffff;
+  --card-border: #e7e5e4; /* stone-200 */
+  --muted-foreground: #78716c; /* stone-500 */
 }
+
+/* 향후 레트로 스킨 자리 — 예: 세피아 톤 + 빈티지 보더 */
+/*
+[data-theme="retro"] {
+  --background: #f4ead8;
+  --foreground: #3a2e1f;
+  --accent: #a1583a;
+  --card: #fff8ec;
+  --card-border: #d8c4a0;
+}
+*/
 
 @theme inline {
   --color-background: var(--background);

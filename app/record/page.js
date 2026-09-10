@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Mic, Upload, CheckCircle2 } from "lucide-react";
 import ClipTimeline from "@/components/ClipTimeline";
 import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
-import { CATEGORIES } from "@/lib/mockData";
 import { generateWaveform } from "@/lib/waveform";
 import { useAppStore } from "@/lib/store";
 
@@ -34,7 +33,6 @@ export default function RecordPage() {
   const [scriptFileName, setScriptFileName] = useState("");
 
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState(CATEGORIES[0]);
   const [savedMessage, setSavedMessage] = useState(false);
 
   function addSegment(source, name) {
@@ -73,7 +71,6 @@ export default function RecordPage() {
     if (clipCount === 0) return;
     addAudio({
       title: title.trim() || "제목 없는 나눔",
-      category,
       hasScript: Boolean(scriptFileName),
       scriptFileName,
       duration: `0${Math.max(1, clipCount)}:${clipCount > 9 ? "" : "3" + clipCount}`,
@@ -196,8 +193,8 @@ export default function RecordPage() {
       </section>
 
       <section>
-        <h2 className="text-base font-semibold text-stone-900">제목 &amp; 분류</h2>
-        <div className="mt-3 space-y-3">
+        <h2 className="text-base font-semibold text-stone-900">제목</h2>
+        <div className="mt-3">
           <input
             type="text"
             value={title}
@@ -205,17 +202,6 @@ export default function RecordPage() {
             placeholder="나눔 제목을 입력하세요"
             className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
           />
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 sm:w-56"
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
         </div>
       </section>
 

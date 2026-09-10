@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import AudioCard from "@/components/AudioCard";
 import ListControls from "@/components/ListControls";
+import { SITE_NAME } from "@/lib/mockData";
 import { useAppStore } from "@/lib/store";
 
 export default function HomePage() {
@@ -22,7 +23,7 @@ export default function HomePage() {
   return (
     <div className="space-y-4">
       <section>
-        <h1 className="text-lg font-semibold text-stone-900">오늘의 나눔</h1>
+        <h1 className="text-lg font-semibold text-stone-900">{SITE_NAME}</h1>
         <p className="mt-1 text-sm text-stone-500">
           동료 목회자들이 전하는 짧은 오디오 메시지를 들어보세요.
         </p>
@@ -37,7 +38,7 @@ export default function HomePage() {
 
       <div className="space-y-4">
         {visible.map((item) => (
-          <AudioCard key={item.id} item={item} context="feed" />
+          <AudioCard key={item.id} item={item} />
         ))}
         {visible.length === 0 && (
           <p className="py-10 text-center text-sm text-stone-400">
