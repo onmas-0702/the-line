@@ -5,6 +5,7 @@ import { Mic, Upload, CheckCircle2, AlertCircle, Play, Pause, Undo2 } from "luci
 import ClipTimeline from "@/components/ClipTimeline";
 import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
 import {
+  DEFAULT_VOICE_OFFSET_SECONDS,
   audioBufferToWavBlob,
   barsForDuration,
   buildContinuousBuffer,
@@ -51,6 +52,9 @@ export default function RecordPage() {
 
   const [selectedTrack, setSelectedTrack] = useState("bg1");
   const [musicVolume, setMusicVolume] = useState(35);
+  // 배경음악이 먼저 나오고 목소리가 이어서 시작하기까지의 인트로 길이(초).
+  // 편집 타임라인의 하늘색 구간을 드래그하면 이 값이 바뀝니다.
+  const [voiceOffsetSeconds, setVoiceOffsetSeconds] = useState(DEFAULT_VOICE_OFFSET_SECONDS);
 
   // 메타데이터 — 나중에 검색에 쓰일 수 있도록 기본 항목을 받아둡니다.
   const [title, setTitle] = useState("");
@@ -231,6 +235,12 @@ export default function RecordPage() {
     (t) => t.id === selectedTrack && t.audioUrl
   );
 
+  // 배경음악이 실제로 믹싱되는 경우, 최종 결과물은 "배경음악 인트로 + 목소리 길이"만큼
+  // 재생됩니다(목소리만 있을 때보다 voiceOffsetSeconds만큼 더 길어짐).
+  const finalPreviewSeconds = selectedBackgroundTrack
+    ? totalClipSeconds + voiceOffsetSeconds
+    : totalClipSeconds;
+
   // 선택된 배경음악을 한 번만 디코딩해서 캐시해둡니다 — 타임라인 두 번째 트랙 표시와
   // 미리듣기/저장 믹싱이 전부 이 캐시를 같이 씁니다(트랙을 바꿀 때만 다시 불러옴).
   const [bgTrackBuffer, setBgTrackBuffer] = useState(null);
@@ -262,7 +272,7 @@ export default function RecordPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBackgroundTrack?.audioUrl]);
 
-  // 목소리 편집 결과 + (있다면) 실제 배경음악을 선택한 볼륨으로 합친 최종 버퍼.
+  // 목소리 편집 결과 + (있다면) 실제 배경음악을 선택한 볼륨/인트로 길이로 합친 최종 버퍼.
   // 미리듣기와 저장이 항상 같은 결과를 내도록 이 함수 하나를 공유해서 씁니다.
   async function buildFinalMixedBuffer() {
     const voiceBuffer = buildContinuousBuffer(segments, { skipGaps: true });
@@ -274,7 +284,7 @@ export default function RecordPage() {
           ? bgTrackBuffer
           : await decodeUrlToBuffer(selectedBackgroundTrack.audioUrl);
       setBgMixError("");
-      return mixVoiceWithBackground(voiceBuffer, bgBuffer, musicVolume / 100);
+      return mixVoiceWithBackground(voiceBuffer, bgBuffer, musicVolume / 100, voiceOffsetSeconds);
     } catch (e) {
       setBgMixError("배경음악을 불러오지 못해 이번엔 목소리만 재생/저장했어요.");
       return voiceBuffer;
@@ -337,6 +347,7 @@ export default function RecordPage() {
     setSegments([]);
     previousSegmentsRef.current = null;
     setCanUndo(false);
+    setVoiceOffsetSeconds(DEFAULT_VOICE_OFFSET_SECONDS);
     setTitle("");
     setPastorName("");
     setChurch("");
@@ -533,6 +544,8 @@ export default function RecordPage() {
             backgroundBuffer={bgTrackBuffer}
             backgroundName={selectedBackgroundTrack?.name}
             backgroundVolume={musicVolume / 100}
+            voiceOffsetSeconds={voiceOffsetSeconds}
+            onVoiceOffsetChange={setVoiceOffsetSeconds}
           />
         </div>
         {clipCount > 0 && (
@@ -565,7 +578,9 @@ export default function RecordPage() {
           />
           {selectedBackgroundTrack ? (
             <p className="mt-2 text-xs text-emerald-600">
-              &quot;{selectedBackgroundTrack.name}&quot;이(가) 실제로 믹싱됩니다. (더킹 효과는 다음 단계로 남아있어요.)
+              &quot;{selectedBackgroundTrack.name}&quot;이(가) 먼저 나오고, {voiceOffsetSeconds.toFixed(1)}초 후
+              목소리가 이어서 시작돼요. (편집 타임라인의 하늘색 인트로 구간을 드래그하면 길이를 바꿀 수
+              있어요 · 더킹 효과는 다음 단계로 남아있어요.)
             </p>
           ) : (
             <p className="mt-2 text-xs text-stone-400">
@@ -600,7 +615,7 @@ export default function RecordPage() {
               ? "믹싱 준비 중…"
               : isPreviewPlaying
               ? "재생 중…"
-              : `총 ${formatDuration(totalClipSeconds)} · 눌러서 미리듣기`}
+              : `총 ${formatDuration(finalPreviewSeconds)} · 눌러서 미리듣기`}
           </p>
         </div>
       </section>
