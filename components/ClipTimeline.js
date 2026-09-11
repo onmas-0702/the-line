@@ -328,7 +328,7 @@ export default function ClipTimeline({ segments, onChange }) {
       </div>
 
       {/* timeline */}
-      <div className="mt-2 flex h-24 gap-0.5 overflow-hidden rounded-lg">
+      <div className="mt-2 flex h-32 gap-0.5 overflow-hidden rounded-lg">
         {segments.map((seg, idx) => {
           const widthPercent = totalSeconds > 0 ? ((seg.duration || 0) / totalSeconds) * 100 : 0;
           const isSelected = seg.id === selectedId;
@@ -358,7 +358,7 @@ export default function ClipTimeline({ segments, onChange }) {
               onDrop={() => handleDropOn(seg.id)}
               onClick={(e) => handleSegmentClick(e, seg)}
               style={{ width: `${widthPercent}%` }}
-              className={`group relative flex h-full min-w-[64px] cursor-pointer flex-col justify-end overflow-hidden rounded-md border-2 px-1 pb-1 transition ${
+              className={`group relative flex h-full min-w-[96px] cursor-pointer flex-col justify-end overflow-hidden rounded-md border-2 px-1 pb-1 transition ${
                 isSelected ? "border-amber-700 bg-amber-50" : "border-stone-200 bg-stone-50 hover:border-stone-300"
               } ${cutMode ? "cursor-crosshair" : ""}`}
               title={segmentLabel(seg, idx)}
@@ -368,18 +368,18 @@ export default function ClipTimeline({ segments, onChange }) {
               </div>
 
               {/* 이 클립만 짧게 미리듣기 / 통째로 완전 삭제 — 편집용 2단계 삭제와는 별개의 빠른 삭제 */}
-              <div className="absolute right-1 top-1 flex items-center gap-1">
+              <div className="absolute right-1 top-1 flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleClipPreview(seg);
                   }}
-                  className="flex h-4 w-4 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm hover:bg-white"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm hover:bg-white"
                   aria-label="클립 미리듣기"
                   title="이 클립만 미리듣기"
                 >
-                  {previewingThis ? <Pause size={9} /> : <Play size={9} />}
+                  {previewingThis ? <Pause size={18} /> : <Play size={18} />}
                 </button>
                 <button
                   type="button"
@@ -387,11 +387,11 @@ export default function ClipTimeline({ segments, onChange }) {
                     e.stopPropagation();
                     deleteClipEntirely(seg.id);
                   }}
-                  className="flex h-4 w-4 items-center justify-center rounded-full bg-white/90 text-stone-500 shadow-sm hover:bg-red-50 hover:text-red-600"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-stone-500 shadow-sm hover:bg-red-50 hover:text-red-600"
                   aria-label="클립 전체 삭제"
                   title="이 클립 전체 삭제"
                 >
-                  <Trash2 size={9} />
+                  <Trash2 size={18} />
                 </button>
               </div>
 

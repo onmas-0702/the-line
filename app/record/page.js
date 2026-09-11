@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, Upload, CheckCircle2, AlertCircle } from "lucide-react";
+import { Mic, Upload, CheckCircle2, AlertCircle, Play, Pause } from "lucide-react";
 import ClipTimeline from "@/components/ClipTimeline";
 import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
 import {
@@ -10,6 +10,7 @@ import {
   computeWaveformPeaks,
   decodeBlobToBuffer,
   formatDuration,
+  getAudioContext,
 } from "@/lib/audio";
 import { uploadAudioRecord } from "@/lib/audioStorage";
 import { CATEGORY_OPTIONS } from "@/lib/mockData";
@@ -61,11 +62,13 @@ export default function RecordPage() {
   const [savedMessage, setSavedMessage] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
 
   const streamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const recordTimerRef = useRef(null);
+  const previewSourceRef = useRef(null);
 
   // 실제 마이크 목록 (권한을 한 번 허용해야 이름이 표시됩니다).
   useEffect(() => {
@@ -183,6 +186,52 @@ export default function RecordPage() {
   const clipSegments = segments.filter((s) => s.type === "clip");
   const clipCount = clipSegments.length;
   const totalClipSeconds = clipSegments.reduce((sum, s) => sum + (s.duration || 0), 0);
+
+  function stopPreviewPlayback() {
+    if (previewSourceRef.current) {
+      try {
+        previewSourceRef.current.onended = null;
+        previewSourceRef.current.stop();
+      } catch (e) {
+        // already stopped
+      }
+      previewSourceRef.current = null;
+    }
+    setIsPreviewPlaying(false);
+  }
+
+  // 정보 입력 전에, 지금까지 편집한 결과(빈 공간 제외 — 실제 저장될 내용과 동일)를
+  // 그대로 들어볼 수 있는 미리듣기. 편집 타임라인이 바뀌면 자동으로 멈춥니다.
+  function togglePreviewPlayback() {
+    if (isPreviewPlaying) {
+      stopPreviewPlayback();
+      return;
+    }
+    const finalBuffer = buildContinuousBuffer(segments, { skipGaps: true });
+    if (!finalBuffer) return;
+    const ctx = getAudioContext();
+    const source = ctx.createBufferSource();
+    source.buffer = finalBuffer;
+    source.connect(ctx.destination);
+    source.onended = () => {
+      previewSourceRef.current = null;
+      setIsPreviewPlaying(false);
+    };
+    source.start(0);
+    previewSourceRef.current = source;
+    setIsPreviewPlaying(true);
+  }
+
+  const firstPreviewRenderRef = useRef(true);
+  useEffect(() => {
+    if (firstPreviewRenderRef.current) {
+      firstPreviewRenderRef.current = false;
+      return;
+    }
+    stopPreviewPlayback();
+  }, [segments]);
+
+  useEffect(() => stopPreviewPlayback, []);
 
   function resetForm() {
     setSegments([]);
@@ -396,6 +445,32 @@ export default function RecordPage() {
           />
           <p className="mt-2 text-xs text-stone-400">
             배경음악과의 실제 믹싱(더킹 포함)은 다음 단계로 남아있어요. 지금 저장하면 목소리 녹음/편집 결과가 저장됩니다.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-base font-semibold text-stone-900">완성본 미리듣기</h2>
+        <p className="mt-1 text-xs text-stone-400">
+          정보를 입력하기 전에, 지금까지 편집한 결과가 실제로 어떻게 들리는지 먼저 확인해보세요.
+          (빈 공간은 제외하고, 저장했을 때와 똑같은 내용으로 재생됩니다.)
+        </p>
+        <div className="mt-3 flex items-center gap-4 rounded-xl border border-stone-200 bg-white p-4">
+          <button
+            type="button"
+            onClick={togglePreviewPlayback}
+            disabled={clipCount === 0}
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-amber-700 text-white shadow-sm transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+            aria-label={isPreviewPlaying ? "미리듣기 정지" : "미리듣기 재생"}
+          >
+            {isPreviewPlaying ? <Pause size={22} /> : <Play size={22} />}
+          </button>
+          <p className="text-sm text-stone-600">
+            {clipCount === 0
+              ? "먼저 녹음하거나 파일을 업로드해주세요."
+              : isPreviewPlaying
+              ? "재생 중…"
+              : `총 ${formatDuration(totalClipSeconds)} · 눌러서 미리듣기`}
           </p>
         </div>
       </section>
