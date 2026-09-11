@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, Play, Pause, Upload, Trash2, Library, Layers } from "lucide-react";
 import { decodeBlobToBuffer } from "@/lib/audio";
 import { uploadBackgroundTrack } from "@/lib/audioStorage";
@@ -64,19 +64,27 @@ export default function BackgroundMusicPicker({ selectedTrackId, onSelect }) {
   const [uploadError, setUploadError] = useState("");
   const previewAudioRef = useRef(null);
 
-  const previewingTrack = personalTracks.find((t) => t.id === previewingId);
-
-  // 실제 파일이 있는(personal, Supabase 업로드된) 트랙만 진짜 소리로 미리듣기가 됩니다.
-  // 공식 라이브러리나 서버 연결 전 업로드는 아직 실제 음원 파일이 없어 라벨만 표시됩니다.
-  useEffect(() => {
+  // 재생을 클릭 핸들러 안에서 직접(동기적으로) 호출해야 브라우저의 자동재생
+  // 정책에 안전하게 걸리지 않습니다 — useEffect로 늦게 play()를 호출하면
+  // 타이밍에 따라 소리가 안 나오는 경우가 있어서 이 방식으로 바꿨습니다.
+  function togglePreview(track) {
     const el = previewAudioRef.current;
-    if (!el) return;
-    if (previewingTrack?.audioUrl) {
-      el.play().catch(() => {});
-    } else {
-      el.pause();
+    if (previewingId === track.id) {
+      el?.pause();
+      setPreviewingId(null);
+      return;
     }
-  }, [previewingTrack]);
+    if (!track.audioUrl || !el) {
+      // 실제 파일이 없는(공식 라이브러리·미연결 업로드) 트랙은 라벨만 토글합니다.
+      setPreviewingId(track.id);
+      return;
+    }
+    el.pause();
+    el.src = track.audioUrl;
+    el.currentTime = 0;
+    el.play().catch(() => {});
+    setPreviewingId(track.id);
+  }
 
   async function handleUpload(e) {
     const file = e.target.files?.[0];
@@ -109,10 +117,6 @@ export default function BackgroundMusicPicker({ selectedTrackId, onSelect }) {
     } finally {
       setIsUploading(false);
     }
-  }
-
-  function togglePreview(id) {
-    setPreviewingId((prev) => (prev === id ? null : id));
   }
 
   return (
@@ -171,7 +175,7 @@ export default function BackgroundMusicPicker({ selectedTrackId, onSelect }) {
                         selected={selectedTrackId === track.id}
                         onSelect={() => onSelect(track.id)}
                         previewing={previewingId === track.id}
-                        onPreview={() => togglePreview(track.id)}
+                        onPreview={() => togglePreview(track)}
                       />
                     ))}
                   </div>
@@ -226,15 +230,9 @@ export default function BackgroundMusicPicker({ selectedTrackId, onSelect }) {
         </div>
       )}
 
-      {previewingTrack?.audioUrl && (
-        <audio
-          ref={previewAudioRef}
-          src={previewingTrack.audioUrl}
-          autoPlay
-          onEnded={() => setPreviewingId(null)}
-          className="hidden"
-        />
-      )}
+      {/* 항상 마운트되어 있는 하나의 오디오 엘리먼트 — src/재생은 클릭 핸들러에서
+          직접 제어합니다(위 togglePreview 참고). */}
+      <audio ref={previewAudioRef} onEnded={() => setPreviewingId(null)} className="hidden" />
     </div>
   );
 }

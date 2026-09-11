@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, Upload, CheckCircle2, AlertCircle, Play, Pause } from "lucide-react";
+import { Mic, Upload, CheckCircle2, AlertCircle, Play, Pause, Undo2 } from "lucide-react";
 import ClipTimeline from "@/components/ClipTimeline";
 import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
 import {
   audioBufferToWavBlob,
+  barsForDuration,
   buildContinuousBuffer,
   computeWaveformPeaks,
   decodeBlobToBuffer,
@@ -73,6 +74,39 @@ export default function RecordPage() {
   const chunksRef = useRef([]);
   const recordTimerRef = useRef(null);
   const previewSourceRef = useRef(null);
+  const previousSegmentsRef = useRef(null);
+  const [canUndo, setCanUndo] = useState(false);
+
+  // segments를 바꾸는 모든 경로(녹음/업로드로 클립 추가, 편집 타임라인의 자르기/삭제/
+  // 순서변경)가 이 함수를 거치도록 해서, 바뀌기 직전 상태를 한 단계 기억해둡니다.
+  function updateSegments(next) {
+    previousSegmentsRef.current = segments;
+    setCanUndo(true);
+    setSegments((prev) => (typeof next === "function" ? next(prev) : next));
+  }
+
+  function undo() {
+    if (previousSegmentsRef.current === null) return;
+    const restored = previousSegmentsRef.current;
+    previousSegmentsRef.current = null;
+    setCanUndo(false);
+    setSegments(restored);
+  }
+
+  // Ctrl+Z / Cmd+Z — 입력창(제목 등)에 포커스가 있을 때는 브라우저 기본 텍스트
+  // 되돌리기를 그대로 두고, 그 외에는 방금 편집한 클립 상태를 되돌립니다.
+  useEffect(() => {
+    function handleKeyDown(e) {
+      const isUndoCombo = (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z";
+      if (!isUndoCombo) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) return;
+      e.preventDefault();
+      undo();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // 실제 마이크 목록 (권한을 한 번 허용해야 이름이 표시됩니다).
   useEffect(() => {
@@ -108,7 +142,7 @@ export default function RecordPage() {
     try {
       const buffer = await decodeBlobToBuffer(blob);
       const id = nextClipId();
-      setSegments((prev) => [
+      updateSegments((prev) => [
         ...prev,
         {
           id,
@@ -117,7 +151,7 @@ export default function RecordPage() {
           name,
           buffer,
           duration: buffer.duration,
-          waveform: computeWaveformPeaks(buffer),
+          waveform: computeWaveformPeaks(buffer, barsForDuration(buffer.duration)),
         },
       ]);
       setMicError("");
@@ -301,6 +335,8 @@ export default function RecordPage() {
 
   function resetForm() {
     setSegments([]);
+    previousSegmentsRef.current = null;
+    setCanUndo(false);
     setTitle("");
     setPastorName("");
     setChurch("");
@@ -473,16 +509,27 @@ export default function RecordPage() {
             </div>
           )}
         </div>
-      </section>
 
-      <section>
-        <h2 className="text-base font-semibold text-stone-900">
-          오디오 편집 <span className="text-xs font-normal text-stone-400">(마그네틱 타임라인)</span>
-        </h2>
+        {/* 녹음/업로드 바로 아래에 파형 편집 영역을 이어 붙여서, 별도 섹션으로
+            떨어져 있던 예전 레이아웃보다 공간을 덜 차지하도록 했습니다. */}
+        <div className="mt-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-stone-900">
+            오디오 편집 <span className="text-xs font-normal text-stone-400">(마그네틱 타임라인)</span>
+          </h2>
+          <button
+            type="button"
+            onClick={undo}
+            disabled={!canUndo}
+            className="flex items-center gap-1.5 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+            title="바로 전 상태로 되돌리기 (Ctrl+Z / Cmd+Z)"
+          >
+            <Undo2 size={13} /> 실행 취소
+          </button>
+        </div>
         <div className="mt-3">
           <ClipTimeline
             segments={segments}
-            onChange={setSegments}
+            onChange={updateSegments}
             backgroundBuffer={bgTrackBuffer}
             backgroundName={selectedBackgroundTrack?.name}
             backgroundVolume={musicVolume / 100}
@@ -681,17 +728,11 @@ export default function RecordPage() {
       <div className="flex justify-end gap-2">
         <button
           type="button"
-          className="rounded-full border border-stone-300 px-4 py-2 text-sm text-stone-600 hover:bg-stone-100"
-        >
-          임시 저장
-        </button>
-        <button
-          type="button"
           onClick={handleSave}
           disabled={clipCount === 0 || isSaving}
           className="rounded-full bg-amber-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-stone-300"
         >
-          {isSaving ? "믹싱 중…" : "믹싱하고 공유하기"}
+          {isSaving ? "믹싱 중…" : "업로드"}
         </button>
       </div>
     </div>

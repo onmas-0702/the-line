@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Scissors, Magnet, Trash2, Play, Pause, GripVertical, Music } from "lucide-react";
 import {
+  barsForDuration,
   buildContinuousBuffer,
   computeTiledWaveformPeaks,
   computeWaveformPeaks,
@@ -222,7 +223,7 @@ export default function ClipTimeline({
       id: nextSplitId(seg.id, "a"),
       buffer: leftBuffer,
       duration: leftBuffer.duration,
-      waveform: computeWaveformPeaks(leftBuffer),
+      waveform: computeWaveformPeaks(leftBuffer, barsForDuration(leftBuffer.duration)),
       name: `${seg.name} (앞)`,
     };
     const right = {
@@ -230,7 +231,7 @@ export default function ClipTimeline({
       id: nextSplitId(seg.id, "b"),
       buffer: rightBuffer,
       duration: rightBuffer.duration,
-      waveform: computeWaveformPeaks(rightBuffer),
+      waveform: computeWaveformPeaks(rightBuffer, barsForDuration(rightBuffer.duration)),
       name: `${seg.name} (뒤)`,
     };
     const next = [...segments];
