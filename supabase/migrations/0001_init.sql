@@ -28,24 +28,40 @@ create table if not exists audios (
   created_by uuid references auth.users(id),  -- 로그인 연동 전까지는 null 허용
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  search_vector tsvector generated always as (
-    to_tsvector(
-      'simple',
-      coalesce(title, '') || ' ' ||
-      coalesce(pastor_name, '') || ' ' ||
-      coalesce(church, '') || ' ' ||
-      coalesce(scripture_reference, '') || ' ' ||
-      coalesce(category, '') || ' ' ||
-      coalesce(description, '') || ' ' ||
-      array_to_string(coalesce(tags, '{}'), ' ')
-    )
-  ) stored
+  -- 검색용 tsvector. generated column으로 만들면 Postgres가
+  -- to_tsvector(text 설정)를 immutable로 인정하지 않아 에러가 나서,
+  -- 아래 트리거로 대신 채웁니다.
+  search_vector tsvector
 );
 
 create index if not exists audios_search_idx on audios using gin (search_vector);
 create index if not exists audios_tags_idx on audios using gin (tags);
 create index if not exists audios_title_trgm_idx on audios using gin (title gin_trgm_ops);
 create index if not exists audios_created_at_idx on audios (created_at desc);
+
+-- search_vector를 insert/update 시마다 자동으로 채워주는 트리거
+create or replace function audios_set_search_vector()
+returns trigger as $$
+begin
+  new.search_vector :=
+    to_tsvector(
+      'simple',
+      coalesce(new.title, '') || ' ' ||
+      coalesce(new.pastor_name, '') || ' ' ||
+      coalesce(new.church, '') || ' ' ||
+      coalesce(new.scripture_reference, '') || ' ' ||
+      coalesce(new.category, '') || ' ' ||
+      coalesce(new.description, '') || ' ' ||
+      array_to_string(coalesce(new.tags, '{}'), ' ')
+    );
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists audios_search_vector_trigger on audios;
+create trigger audios_search_vector_trigger
+  before insert or update on audios
+  for each row execute function audios_set_search_vector();
 
 -- ─────────────────────────────────────────────
 -- 2. 배경음악 — 개인 라이브러리 (공식 라이브러리는 코드에 고정된 읽기 전용 목록)

@@ -27,11 +27,13 @@ export default function ClipTimeline({ segments, onChange }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playheadPercent, setPlayheadPercent] = useState(0);
   const [dragId, setDragId] = useState(null);
+  const [previewClipId, setPreviewClipId] = useState(null);
   const railRef = useRef(null);
   const sourceRef = useRef(null);
   const startedAtRef = useRef(0);
   const rafRef = useRef(null);
   const firstRenderRef = useRef(true);
+  const clipSourceRef = useRef(null);
 
   const totalSeconds = segments.reduce((sum, s) => sum + (s.duration || 0), 0);
   const hasGap = segments.some((s) => s.type === "gap");
@@ -97,6 +99,49 @@ export default function ClipTimeline({ segments, onChange }) {
     playFrom(offsetSeconds);
   }
 
+  function stopClipPreview() {
+    if (clipSourceRef.current) {
+      try {
+        clipSourceRef.current.onended = null;
+        clipSourceRef.current.stop();
+      } catch (e) {
+        // already stopped
+      }
+      clipSourceRef.current = null;
+    }
+    setPreviewClipId(null);
+  }
+
+  // 클립 하나만 짧게 미리듣기 — 전체 타임라인 재생과는 별개입니다.
+  function toggleClipPreview(seg) {
+    if (!seg.buffer) return;
+    if (previewClipId === seg.id) {
+      stopClipPreview();
+      return;
+    }
+    stopClipPreview();
+    const ctx = getAudioContext();
+    const source = ctx.createBufferSource();
+    source.buffer = seg.buffer;
+    source.connect(ctx.destination);
+    source.onended = () => {
+      setPreviewClipId((prev) => (prev === seg.id ? null : prev));
+      clipSourceRef.current = null;
+    };
+    source.start(0);
+    clipSourceRef.current = source;
+    setPreviewClipId(seg.id);
+  }
+
+  // 녹음/업로드 직후 마음에 들지 않는 클립을 곧바로 완전히 삭제합니다.
+  // (편집 중 자르기로 생긴 구간을 지우는 것과 달리, 빈 공간을 남기지 않고
+  // 바로 사라지면서 뒤 클립이 앞으로 당겨집니다.)
+  function deleteClipEntirely(id) {
+    onChange(segments.filter((s) => s.id !== id));
+    if (selectedId === id) setSelectedId(null);
+    if (previewClipId === id) stopClipPreview();
+  }
+
   // Stop playback and reset the playhead whenever the edit list changes
   // underneath us (split / delete / reorder / new clip).
   useEffect(() => {
@@ -105,11 +150,17 @@ export default function ClipTimeline({ segments, onChange }) {
       return;
     }
     stopPlayback();
+    stopClipPreview();
     setIsPlaying(false);
     setPlayheadPercent(0);
   }, [segments]);
 
-  useEffect(() => stopPlayback, []);
+  useEffect(() => {
+    return () => {
+      stopPlayback();
+      stopClipPreview();
+    };
+  }, []);
 
   function seekTo(clientX) {
     if (!railRef.current || !previewBuffer) return;
@@ -297,6 +348,7 @@ export default function ClipTimeline({ segments, onChange }) {
               </button>
             );
           }
+          const previewingThis = previewClipId === seg.id;
           return (
             <div
               key={seg.id}
@@ -306,7 +358,7 @@ export default function ClipTimeline({ segments, onChange }) {
               onDrop={() => handleDropOn(seg.id)}
               onClick={(e) => handleSegmentClick(e, seg)}
               style={{ width: `${widthPercent}%` }}
-              className={`group relative flex h-full min-w-[28px] cursor-pointer flex-col justify-end overflow-hidden rounded-md border-2 px-1 pb-1 transition ${
+              className={`group relative flex h-full min-w-[64px] cursor-pointer flex-col justify-end overflow-hidden rounded-md border-2 px-1 pb-1 transition ${
                 isSelected ? "border-amber-700 bg-amber-50" : "border-stone-200 bg-stone-50 hover:border-stone-300"
               } ${cutMode ? "cursor-crosshair" : ""}`}
               title={segmentLabel(seg, idx)}
@@ -314,9 +366,35 @@ export default function ClipTimeline({ segments, onChange }) {
               <div className="pointer-events-none absolute left-1 top-1 flex items-center gap-0.5 text-stone-400">
                 <GripVertical size={11} />
               </div>
-              <div className="pointer-events-none absolute right-1 top-1 text-[10px] text-stone-400">
-                {formatDuration(seg.duration)}
+
+              {/* 이 클립만 짧게 미리듣기 / 통째로 완전 삭제 — 편집용 2단계 삭제와는 별개의 빠른 삭제 */}
+              <div className="absolute right-1 top-1 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleClipPreview(seg);
+                  }}
+                  className="flex h-4 w-4 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm hover:bg-white"
+                  aria-label="클립 미리듣기"
+                  title="이 클립만 미리듣기"
+                >
+                  {previewingThis ? <Pause size={9} /> : <Play size={9} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteClipEntirely(seg.id);
+                  }}
+                  className="flex h-4 w-4 items-center justify-center rounded-full bg-white/90 text-stone-500 shadow-sm hover:bg-red-50 hover:text-red-600"
+                  aria-label="클립 전체 삭제"
+                  title="이 클립 전체 삭제"
+                >
+                  <Trash2 size={9} />
+                </button>
               </div>
+
               <div className="flex h-full items-end gap-[1px]">
                 {seg.waveform.map((v, i) => (
                   <span
@@ -325,6 +403,9 @@ export default function ClipTimeline({ segments, onChange }) {
                     style={{ height: `${v}%` }}
                   />
                 ))}
+              </div>
+              <div className="pointer-events-none absolute bottom-1 right-1 text-[10px] text-stone-400">
+                {formatDuration(seg.duration)}
               </div>
             </div>
           );
@@ -338,8 +419,9 @@ export default function ClipTimeline({ segments, onChange }) {
 
       <p className="mt-2 text-xs text-stone-400">
         클립을 드래그해서 순서를 바꾸고(클립이동), 자르기 도구로 파형을 클릭해 두 클립으로 나누세요.
-        구간을 삭제하면 빈 공간이 남고, 빈 공간을 다시 선택해 삭제하면 자석처럼 옆 클립과 이어붙습니다.
-        재생 버튼은 실제 녹음/업로드된 오디오를 그대로 재생합니다.
+        클립 우측 상단의 ▶ / 휴지통 아이콘으로 그 클립만 미리듣고 마음에 안 들면 통째로 바로 삭제할 수 있어요.
+        (구간 삭제 버튼으로 지우면 빈 공간이 남고, 빈 공간을 다시 선택해 삭제하면 자석처럼 옆 클립과 이어붙는
+        정밀 편집용 방식입니다.) 재생 버튼은 실제 녹음/업로드된 오디오를 그대로 재생합니다.
       </p>
     </div>
   );
