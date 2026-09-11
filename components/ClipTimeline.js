@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Scissors, Magnet, Trash2, Play, Pause, GripVertical } from "lucide-react";
+import { Scissors, Magnet, Trash2, Play, Pause, GripVertical, Music } from "lucide-react";
 import {
   buildContinuousBuffer,
+  computeTiledWaveformPeaks,
   computeWaveformPeaks,
   formatDuration,
   getAudioContext,
+  mixVoiceWithBackground,
   sliceAudioBuffer,
 } from "@/lib/audio";
 
@@ -21,7 +23,13 @@ function segmentLabel(seg, idx) {
   return `${idx + 1}. ${seg.name}`;
 }
 
-export default function ClipTimeline({ segments, onChange }) {
+export default function ClipTimeline({
+  segments,
+  onChange,
+  backgroundBuffer = null,
+  backgroundName = "",
+  backgroundVolume = 0.35,
+}) {
   const [selectedId, setSelectedId] = useState(null);
   const [cutMode, setCutMode] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -41,7 +49,21 @@ export default function ClipTimeline({ segments, onChange }) {
 
   // Real, continuous audio built from the actual decoded clips + real
   // silence for gaps — this is what actually plays, not a fake timer.
-  const previewBuffer = useMemo(() => buildContinuousBuffer(segments), [segments]);
+  // When a real background track is provided, it's mixed in too, so this
+  // play button previews the same thing the final save would produce.
+  const previewBuffer = useMemo(() => {
+    const voice = buildContinuousBuffer(segments);
+    if (!voice) return null;
+    if (!backgroundBuffer) return voice;
+    return mixVoiceWithBackground(voice, backgroundBuffer, backgroundVolume);
+  }, [segments, backgroundBuffer, backgroundVolume]);
+
+  // 배경음악 트랙을 화면에 두 번째 줄로 보여주기 위한 파형 — 실제 믹싱 때와 똑같이
+  // 목소리 트랙 길이에 맞춰 반복/트림된 모양으로 미리 계산합니다.
+  const backgroundWaveform = useMemo(
+    () => (backgroundBuffer ? computeTiledWaveformPeaks(backgroundBuffer, totalSeconds) : null),
+    [backgroundBuffer, totalSeconds]
+  );
 
   function stopPlayback() {
     if (sourceRef.current) {
@@ -153,7 +175,7 @@ export default function ClipTimeline({ segments, onChange }) {
     stopClipPreview();
     setIsPlaying(false);
     setPlayheadPercent(0);
-  }, [segments]);
+  }, [segments, backgroundBuffer]);
 
   useEffect(() => {
     return () => {
@@ -327,8 +349,10 @@ export default function ClipTimeline({ segments, onChange }) {
         />
       </div>
 
-      {/* timeline */}
-      <div className="mt-2 flex h-32 gap-0.5 overflow-hidden rounded-lg">
+      {/* 목소리 트랙 + (있다면) 배경음악 트랙을 같은 시간축에 정렬해서 보여주는 영역.
+          두 트랙 위로 재생 위치를 나타내는 세로선이 함께 지나갑니다. */}
+      <div className="relative mt-2">
+      <div className="flex h-32 gap-0.5 overflow-hidden rounded-lg">
         {segments.map((seg, idx) => {
           const widthPercent = totalSeconds > 0 ? ((seg.duration || 0) / totalSeconds) * 100 : 0;
           const isSelected = seg.id === selectedId;
@@ -417,11 +441,35 @@ export default function ClipTimeline({ segments, onChange }) {
         )}
       </div>
 
+      {/* 배경음악 트랙 — 목소리 트랙과 같은 가로 폭(=같은 시간축)에 정렬됩니다 */}
+      {backgroundWaveform && backgroundWaveform.length > 0 && (
+        <div className="mt-1 rounded-lg bg-sky-50 p-1.5">
+          <p className="mb-1 flex items-center gap-1 text-[10px] font-medium text-sky-600">
+            <Music size={10} /> 배경음악{backgroundName ? `: ${backgroundName}` : ""}
+          </p>
+          <div className="flex h-10 items-end gap-[1px] overflow-hidden">
+            {backgroundWaveform.map((v, i) => (
+              <span key={i} className="w-full rounded-sm bg-sky-300" style={{ height: `${v}%` }} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 목소리 + 배경음악 트랙을 함께 관통하는 재생 위치 세로선 */}
+      {totalSeconds > 0 && (
+        <div
+          className="pointer-events-none absolute inset-y-0 w-0.5 bg-amber-700/70"
+          style={{ left: `${playheadPercent}%` }}
+        />
+      )}
+      </div>
+
       <p className="mt-2 text-xs text-stone-400">
         클립을 드래그해서 순서를 바꾸고(클립이동), 자르기 도구로 파형을 클릭해 두 클립으로 나누세요.
         클립 우측 상단의 ▶ / 휴지통 아이콘으로 그 클립만 미리듣고 마음에 안 들면 통째로 바로 삭제할 수 있어요.
         (구간 삭제 버튼으로 지우면 빈 공간이 남고, 빈 공간을 다시 선택해 삭제하면 자석처럼 옆 클립과 이어붙는
-        정밀 편집용 방식입니다.) 재생 버튼은 실제 녹음/업로드된 오디오를 그대로 재생합니다.
+        정밀 편집용 방식입니다.) 재생 버튼은 실제 녹음/업로드된 오디오를 그대로 재생하고, 배경음악을
+        선택했다면 아래 파란 트랙에 같은 시간축으로 표시되며 함께 섞여 재생됩니다.
       </p>
     </div>
   );

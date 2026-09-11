@@ -9,8 +9,10 @@ import {
   buildContinuousBuffer,
   computeWaveformPeaks,
   decodeBlobToBuffer,
+  decodeUrlToBuffer,
   formatDuration,
   getAudioContext,
+  mixVoiceWithBackground,
 } from "@/lib/audio";
 import { uploadAudioRecord } from "@/lib/audioStorage";
 import { CATEGORY_OPTIONS } from "@/lib/mockData";
@@ -36,7 +38,7 @@ function pickMimeType() {
 }
 
 export default function RecordPage() {
-  const { addAudio, addAudioFromRow } = useAppStore();
+  const { addAudio, addAudioFromRow, personalTracks } = useAppStore();
 
   const [activeTab, setActiveTab] = useState("record");
   const [isRecording, setIsRecording] = useState(false);
@@ -63,6 +65,8 @@ export default function RecordPage() {
   const [saveError, setSaveError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [isMixing, setIsMixing] = useState(false);
+  const [bgMixError, setBgMixError] = useState("");
 
   const streamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -187,6 +191,62 @@ export default function RecordPage() {
   const clipCount = clipSegments.length;
   const totalClipSeconds = clipSegments.reduce((sum, s) => sum + (s.duration || 0), 0);
 
+  // 공식 라이브러리는 아직 실제 음원 파일이 없는 샘플 목록이라 믹싱에 반영할 수 없고,
+  // 내 라이브러리에서 실제로 업로드된(audioUrl이 있는) 트랙만 실제로 믹싱됩니다.
+  const selectedBackgroundTrack = personalTracks.find(
+    (t) => t.id === selectedTrack && t.audioUrl
+  );
+
+  // 선택된 배경음악을 한 번만 디코딩해서 캐시해둡니다 — 타임라인 두 번째 트랙 표시와
+  // 미리듣기/저장 믹싱이 전부 이 캐시를 같이 씁니다(트랙을 바꿀 때만 다시 불러옴).
+  const [bgTrackBuffer, setBgTrackBuffer] = useState(null);
+  const [bgTrackUrl, setBgTrackUrl] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBackgroundTrack() {
+      if (!selectedBackgroundTrack) {
+        setBgTrackBuffer(null);
+        setBgTrackUrl("");
+        return;
+      }
+      if (selectedBackgroundTrack.audioUrl === bgTrackUrl) return;
+      try {
+        const buffer = await decodeUrlToBuffer(selectedBackgroundTrack.audioUrl);
+        if (cancelled) return;
+        setBgTrackBuffer(buffer);
+        setBgTrackUrl(selectedBackgroundTrack.audioUrl);
+        setBgMixError("");
+      } catch (e) {
+        if (!cancelled) setBgMixError("배경음악을 불러오지 못했어요.");
+      }
+    }
+    loadBackgroundTrack();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBackgroundTrack?.audioUrl]);
+
+  // 목소리 편집 결과 + (있다면) 실제 배경음악을 선택한 볼륨으로 합친 최종 버퍼.
+  // 미리듣기와 저장이 항상 같은 결과를 내도록 이 함수 하나를 공유해서 씁니다.
+  async function buildFinalMixedBuffer() {
+    const voiceBuffer = buildContinuousBuffer(segments, { skipGaps: true });
+    if (!voiceBuffer) return null;
+    if (!selectedBackgroundTrack) return voiceBuffer;
+    try {
+      const bgBuffer =
+        bgTrackBuffer && bgTrackUrl === selectedBackgroundTrack.audioUrl
+          ? bgTrackBuffer
+          : await decodeUrlToBuffer(selectedBackgroundTrack.audioUrl);
+      setBgMixError("");
+      return mixVoiceWithBackground(voiceBuffer, bgBuffer, musicVolume / 100);
+    } catch (e) {
+      setBgMixError("배경음악을 불러오지 못해 이번엔 목소리만 재생/저장했어요.");
+      return voiceBuffer;
+    }
+  }
+
   function stopPreviewPlayback() {
     if (previewSourceRef.current) {
       try {
@@ -200,26 +260,32 @@ export default function RecordPage() {
     setIsPreviewPlaying(false);
   }
 
-  // 정보 입력 전에, 지금까지 편집한 결과(빈 공간 제외 — 실제 저장될 내용과 동일)를
-  // 그대로 들어볼 수 있는 미리듣기. 편집 타임라인이 바뀌면 자동으로 멈춥니다.
-  function togglePreviewPlayback() {
+  // 정보 입력 전에, 지금까지 편집한 결과(빈 공간 제외, 실제 배경음악이 선택되어 있으면
+  // 그것까지 합쳐서 — 저장했을 때와 똑같은 내용)를 그대로 들어볼 수 있는 미리듣기.
+  // 편집 타임라인이 바뀌면 자동으로 멈춥니다.
+  async function togglePreviewPlayback() {
     if (isPreviewPlaying) {
       stopPreviewPlayback();
       return;
     }
-    const finalBuffer = buildContinuousBuffer(segments, { skipGaps: true });
-    if (!finalBuffer) return;
-    const ctx = getAudioContext();
-    const source = ctx.createBufferSource();
-    source.buffer = finalBuffer;
-    source.connect(ctx.destination);
-    source.onended = () => {
-      previewSourceRef.current = null;
-      setIsPreviewPlaying(false);
-    };
-    source.start(0);
-    previewSourceRef.current = source;
-    setIsPreviewPlaying(true);
+    setIsMixing(true);
+    try {
+      const finalBuffer = await buildFinalMixedBuffer();
+      if (!finalBuffer) return;
+      const ctx = getAudioContext();
+      const source = ctx.createBufferSource();
+      source.buffer = finalBuffer;
+      source.connect(ctx.destination);
+      source.onended = () => {
+        previewSourceRef.current = null;
+        setIsPreviewPlaying(false);
+      };
+      source.start(0);
+      previewSourceRef.current = source;
+      setIsPreviewPlaying(true);
+    } finally {
+      setIsMixing(false);
+    }
   }
 
   const firstPreviewRenderRef = useRef(true);
@@ -251,8 +317,9 @@ export default function RecordPage() {
     setSaveError("");
     try {
       // Any remaining gaps are treated as removed for the final export —
-      // the same effect as pressing "자동으로 붙이기" before saving.
-      const finalBuffer = buildContinuousBuffer(segments, { skipGaps: true });
+      // the same effect as pressing "자동으로 붙이기" before saving. Uses the
+      // same mixer as the preview button, so what you hear is what gets saved.
+      const finalBuffer = await buildFinalMixedBuffer();
       if (!finalBuffer) {
         setIsSaving(false);
         return;
@@ -413,7 +480,13 @@ export default function RecordPage() {
           오디오 편집 <span className="text-xs font-normal text-stone-400">(마그네틱 타임라인)</span>
         </h2>
         <div className="mt-3">
-          <ClipTimeline segments={segments} onChange={setSegments} />
+          <ClipTimeline
+            segments={segments}
+            onChange={setSegments}
+            backgroundBuffer={bgTrackBuffer}
+            backgroundName={selectedBackgroundTrack?.name}
+            backgroundVolume={musicVolume / 100}
+          />
         </div>
         {clipCount > 0 && (
           <p className="mt-2 text-xs text-stone-400">
@@ -443,9 +516,17 @@ export default function RecordPage() {
             onChange={(e) => setMusicVolume(Number(e.target.value))}
             className="mt-2 w-full accent-amber-700"
           />
-          <p className="mt-2 text-xs text-stone-400">
-            배경음악과의 실제 믹싱(더킹 포함)은 다음 단계로 남아있어요. 지금 저장하면 목소리 녹음/편집 결과가 저장됩니다.
-          </p>
+          {selectedBackgroundTrack ? (
+            <p className="mt-2 text-xs text-emerald-600">
+              &quot;{selectedBackgroundTrack.name}&quot;이(가) 실제로 믹싱됩니다. (더킹 효과는 다음 단계로 남아있어요.)
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-stone-400">
+              공식 라이브러리는 아직 실제 음원 파일이 없는 샘플이라 믹싱에 반영되지 않아요. 실제로 믹싱하려면
+              &quot;내 라이브러리&quot;에 배경음악을 업로드한 뒤 선택해주세요.
+            </p>
+          )}
+          {bgMixError && <p className="mt-1 text-xs text-red-600">{bgMixError}</p>}
         </div>
       </section>
 
@@ -453,13 +534,13 @@ export default function RecordPage() {
         <h2 className="text-base font-semibold text-stone-900">완성본 미리듣기</h2>
         <p className="mt-1 text-xs text-stone-400">
           정보를 입력하기 전에, 지금까지 편집한 결과가 실제로 어떻게 들리는지 먼저 확인해보세요.
-          (빈 공간은 제외하고, 저장했을 때와 똑같은 내용으로 재생됩니다.)
+          (빈 공간은 제외하고, 실제 배경음악이 선택되어 있으면 그것까지 합쳐서 — 저장했을 때와 똑같이 재생됩니다.)
         </p>
         <div className="mt-3 flex items-center gap-4 rounded-xl border border-stone-200 bg-white p-4">
           <button
             type="button"
             onClick={togglePreviewPlayback}
-            disabled={clipCount === 0}
+            disabled={clipCount === 0 || isMixing}
             className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-amber-700 text-white shadow-sm transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-stone-300"
             aria-label={isPreviewPlaying ? "미리듣기 정지" : "미리듣기 재생"}
           >
@@ -468,6 +549,8 @@ export default function RecordPage() {
           <p className="text-sm text-stone-600">
             {clipCount === 0
               ? "먼저 녹음하거나 파일을 업로드해주세요."
+              : isMixing
+              ? "믹싱 준비 중…"
               : isPreviewPlaying
               ? "재생 중…"
               : `총 ${formatDuration(totalClipSeconds)} · 눌러서 미리듣기`}
