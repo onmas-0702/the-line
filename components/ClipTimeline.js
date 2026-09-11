@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Scissors, Magnet, Trash2, Play, Pause, GripVertical } from "lucide-react";
-import { sliceWaveform } from "@/lib/waveform";
-
-const TOTAL_PLAY_MS = 6000;
+import {
+  buildContinuousBuffer,
+  computeWaveformPeaks,
+  formatDuration,
+  getAudioContext,
+  sliceAudioBuffer,
+} from "@/lib/audio";
 
 let splitCounter = 0;
 function nextSplitId(base, suffix) {
@@ -24,39 +28,97 @@ export default function ClipTimeline({ segments, onChange }) {
   const [playheadPercent, setPlayheadPercent] = useState(0);
   const [dragId, setDragId] = useState(null);
   const railRef = useRef(null);
-  const playStartRef = useRef(null);
+  const sourceRef = useRef(null);
+  const startedAtRef = useRef(0);
   const rafRef = useRef(null);
+  const firstRenderRef = useRef(true);
 
-  const totalUnits = segments.reduce((sum, s) => sum + s.units, 0) || 1;
+  const totalSeconds = segments.reduce((sum, s) => sum + (s.duration || 0), 0);
   const hasGap = segments.some((s) => s.type === "gap");
   const selected = segments.find((s) => s.id === selectedId) || null;
 
-  useEffect(() => {
-    if (!isPlaying) {
-      cancelAnimationFrame(rafRef.current);
+  // Real, continuous audio built from the actual decoded clips + real
+  // silence for gaps — this is what actually plays, not a fake timer.
+  const previewBuffer = useMemo(() => buildContinuousBuffer(segments), [segments]);
+
+  function stopPlayback() {
+    if (sourceRef.current) {
+      try {
+        sourceRef.current.onended = null;
+        sourceRef.current.stop();
+      } catch (e) {
+        // already stopped
+      }
+      sourceRef.current = null;
+    }
+    cancelAnimationFrame(rafRef.current);
+  }
+
+  function tick() {
+    const ctx = getAudioContext();
+    if (!sourceRef.current || !previewBuffer) return;
+    const elapsed = ctx.currentTime - startedAtRef.current;
+    const pct = Math.min(100, (elapsed / previewBuffer.duration) * 100);
+    setPlayheadPercent(pct);
+    if (pct >= 100) {
+      stopPlayback();
+      setIsPlaying(false);
+      setPlayheadPercent(0);
       return;
     }
-    playStartRef.current = performance.now() - (playheadPercent / 100) * TOTAL_PLAY_MS;
-    function tick(now) {
-      const elapsed = now - playStartRef.current;
-      const pct = Math.min(100, (elapsed / TOTAL_PLAY_MS) * 100);
-      setPlayheadPercent(pct);
-      if (pct >= 100) {
-        setIsPlaying(false);
-        return;
-      }
-      rafRef.current = requestAnimationFrame(tick);
-    }
     rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlaying]);
+  }
+
+  function playFrom(offsetSeconds) {
+    if (!previewBuffer || previewBuffer.duration <= 0) return;
+    stopPlayback();
+    const ctx = getAudioContext();
+    const source = ctx.createBufferSource();
+    source.buffer = previewBuffer;
+    source.connect(ctx.destination);
+    const clampedOffset = Math.max(0, Math.min(previewBuffer.duration - 0.02, offsetSeconds));
+    source.start(0, clampedOffset);
+    sourceRef.current = source;
+    startedAtRef.current = ctx.currentTime - clampedOffset;
+    source.onended = () => {
+      sourceRef.current = null;
+    };
+    setIsPlaying(true);
+    rafRef.current = requestAnimationFrame(tick);
+  }
+
+  function togglePlay() {
+    if (isPlaying) {
+      stopPlayback();
+      setIsPlaying(false);
+      return;
+    }
+    const offsetSeconds = (playheadPercent / 100) * (previewBuffer?.duration || 0);
+    playFrom(offsetSeconds);
+  }
+
+  // Stop playback and reset the playhead whenever the edit list changes
+  // underneath us (split / delete / reorder / new clip).
+  useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+      return;
+    }
+    stopPlayback();
+    setIsPlaying(false);
+    setPlayheadPercent(0);
+  }, [segments]);
+
+  useEffect(() => stopPlayback, []);
 
   function seekTo(clientX) {
-    if (!railRef.current) return;
+    if (!railRef.current || !previewBuffer) return;
     const rect = railRef.current.getBoundingClientRect();
     const fraction = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     setPlayheadPercent(fraction * 100);
+    if (isPlaying) {
+      playFrom(fraction * previewBuffer.duration);
+    }
   }
 
   function handleRailClick(e) {
@@ -79,21 +141,23 @@ export default function ClipTimeline({ segments, onChange }) {
     const idx = segments.findIndex((s) => s.id === id);
     if (idx === -1) return;
     const seg = segments[idx];
-    const [leftWave, rightWave] = sliceWaveform(seg.waveform, fraction);
-    const leftUnits = Math.max(4, Math.round(seg.units * fraction));
-    const rightUnits = Math.max(4, seg.units - leftUnits);
+    if (!seg.buffer) return;
+    const leftBuffer = sliceAudioBuffer(seg.buffer, 0, fraction);
+    const rightBuffer = sliceAudioBuffer(seg.buffer, fraction, 1);
     const left = {
       ...seg,
       id: nextSplitId(seg.id, "a"),
-      units: leftUnits,
-      waveform: leftWave,
+      buffer: leftBuffer,
+      duration: leftBuffer.duration,
+      waveform: computeWaveformPeaks(leftBuffer),
       name: `${seg.name} (앞)`,
     };
     const right = {
       ...seg,
       id: nextSplitId(seg.id, "b"),
-      units: rightUnits,
-      waveform: rightWave,
+      buffer: rightBuffer,
+      duration: rightBuffer.duration,
+      waveform: computeWaveformPeaks(rightBuffer),
       name: `${seg.name} (뒤)`,
     };
     const next = [...segments];
@@ -110,7 +174,7 @@ export default function ClipTimeline({ segments, onChange }) {
       onChange(
         segments.map((s) =>
           s.id === selected.id
-            ? { id: s.id, type: "gap", units: s.units }
+            ? { id: s.id, type: "gap", duration: s.duration }
             : s
         )
       );
@@ -145,17 +209,24 @@ export default function ClipTimeline({ segments, onChange }) {
     setDragId(null);
   }
 
+  const elapsedSeconds = (playheadPercent / 100) * totalSeconds;
+
   return (
     <div className="rounded-xl border border-stone-200 bg-white p-4">
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={() => setIsPlaying((v) => !v)}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-700 text-white hover:bg-amber-800"
+          onClick={togglePlay}
+          disabled={totalSeconds === 0}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-700 text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-stone-300"
           aria-label={isPlaying ? "정지" : "재생"}
         >
           {isPlaying ? <Pause size={14} /> : <Play size={14} />}
         </button>
+
+        <span className="text-xs tabular-nums text-stone-400">
+          {formatDuration(elapsedSeconds)} / {formatDuration(totalSeconds)}
+        </span>
 
         <button
           type="button"
@@ -208,7 +279,7 @@ export default function ClipTimeline({ segments, onChange }) {
       {/* timeline */}
       <div className="mt-2 flex h-24 gap-0.5 overflow-hidden rounded-lg">
         {segments.map((seg, idx) => {
-          const widthPercent = (seg.units / totalUnits) * 100;
+          const widthPercent = totalSeconds > 0 ? ((seg.duration || 0) / totalSeconds) * 100 : 0;
           const isSelected = seg.id === selectedId;
           if (seg.type === "gap") {
             return (
@@ -243,6 +314,9 @@ export default function ClipTimeline({ segments, onChange }) {
               <div className="pointer-events-none absolute left-1 top-1 flex items-center gap-0.5 text-stone-400">
                 <GripVertical size={11} />
               </div>
+              <div className="pointer-events-none absolute right-1 top-1 text-[10px] text-stone-400">
+                {formatDuration(seg.duration)}
+              </div>
               <div className="flex h-full items-end gap-[1px]">
                 {seg.waveform.map((v, i) => (
                   <span
@@ -257,7 +331,7 @@ export default function ClipTimeline({ segments, onChange }) {
         })}
         {segments.length === 0 && (
           <div className="flex w-full items-center justify-center text-xs text-stone-400">
-            녹음하거나 파일을 업로드하면 여기에 파형이 표시됩니다.
+            녹음하거나 파일을 업로드하면 실제 파형이 여기에 표시됩니다.
           </div>
         )}
       </div>
@@ -265,6 +339,7 @@ export default function ClipTimeline({ segments, onChange }) {
       <p className="mt-2 text-xs text-stone-400">
         클립을 드래그해서 순서를 바꾸고(클립이동), 자르기 도구로 파형을 클릭해 두 클립으로 나누세요.
         구간을 삭제하면 빈 공간이 남고, 빈 공간을 다시 선택해 삭제하면 자석처럼 옆 클립과 이어붙습니다.
+        재생 버튼은 실제 녹음/업로드된 오디오를 그대로 재생합니다.
       </p>
     </div>
   );

@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Play, Pause, Upload, Trash2, Library, Layers } from "lucide-react";
+import { decodeBlobToBuffer } from "@/lib/audio";
+import { uploadBackgroundTrack } from "@/lib/audioStorage";
 import { officialBackgroundThemes } from "@/lib/mockData";
 import { useAppStore } from "@/lib/store";
+import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 function TrackRow({ track, selected, onSelect, previewing, onPreview, onDelete }) {
   return (
@@ -53,15 +56,59 @@ function TrackRow({ track, selected, onSelect, previewing, onPreview, onDelete }
 }
 
 export default function BackgroundMusicPicker({ selectedTrackId, onSelect }) {
-  const { personalTracks, addPersonalTrack, deletePersonalTrack } = useAppStore();
+  const { personalTracks, addPersonalTrack, addPersonalTrackFromRow, deletePersonalTrack } = useAppStore();
   const [activeSection, setActiveSection] = useState("official");
   const [openThemeId, setOpenThemeId] = useState(officialBackgroundThemes[0]?.id ?? null);
   const [previewingId, setPreviewingId] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const previewAudioRef = useRef(null);
 
-  function handleUpload(e) {
+  const previewingTrack = personalTracks.find((t) => t.id === previewingId);
+
+  // 실제 파일이 있는(personal, Supabase 업로드된) 트랙만 진짜 소리로 미리듣기가 됩니다.
+  // 공식 라이브러리나 서버 연결 전 업로드는 아직 실제 음원 파일이 없어 라벨만 표시됩니다.
+  useEffect(() => {
+    const el = previewAudioRef.current;
+    if (!el) return;
+    if (previewingTrack?.audioUrl) {
+      el.play().catch(() => {});
+    } else {
+      el.pause();
+    }
+  }, [previewingTrack]);
+
+  async function handleUpload(e) {
     const file = e.target.files?.[0];
-    if (file) addPersonalTrack(file.name.replace(/\.[^.]+$/, ""));
     e.target.value = "";
+    if (!file) return;
+
+    const name = file.name.replace(/\.[^.]+$/, "");
+    setUploadError("");
+
+    if (!isSupabaseConfigured) {
+      addPersonalTrack(name);
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      let durationSeconds = 0;
+      try {
+        const buffer = await decodeBlobToBuffer(file);
+        durationSeconds = buffer.duration;
+      } catch (err) {
+        // 디코딩에 실패해도 파일 자체는 그대로 업로드합니다 (길이 정보만 0으로).
+      }
+      const result = await uploadBackgroundTrack({ file, name, durationSeconds });
+      if (result.ok) {
+        addPersonalTrackFromRow(result.row);
+      } else {
+        setUploadError(`업로드에 실패했어요: ${result.reason}`);
+      }
+    } finally {
+      setIsUploading(false);
+    }
   }
 
   function togglePreview(id) {
@@ -138,6 +185,12 @@ export default function BackgroundMusicPicker({ selectedTrackId, onSelect }) {
           <p className="text-xs text-stone-400">
             직접 업로드해서 나만 사용하는 배경음악 보관함입니다. 여기서 자유롭게 추가·삭제할 수 있어요.
           </p>
+          {!isSupabaseConfigured && (
+            <p className="text-xs text-amber-600">
+              서버가 아직 연결되지 않아 지금은 파일명만 이 브라우저에 임시로 기록돼요.
+            </p>
+          )}
+          {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
           <div className="space-y-1.5 rounded-xl border border-stone-200 bg-white p-3">
             {personalTracks.length === 0 && (
               <p className="py-4 text-center text-xs text-stone-400">
@@ -155,15 +208,32 @@ export default function BackgroundMusicPicker({ selectedTrackId, onSelect }) {
                 onDelete={() => {
                   deletePersonalTrack(track.id);
                   if (selectedTrackId === track.id) onSelect(null);
+                  if (previewingId === track.id) setPreviewingId(null);
                 }}
               />
             ))}
             <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-300 p-2 text-xs text-stone-500 hover:bg-stone-50">
-              <Upload size={13} /> 내 라이브러리에 배경음악 업로드
-              <input type="file" accept="audio/*" className="hidden" onChange={handleUpload} />
+              <Upload size={13} /> {isUploading ? "업로드 중…" : "내 라이브러리에 배경음악 업로드"}
+              <input
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                disabled={isUploading}
+                onChange={handleUpload}
+              />
             </label>
           </div>
         </div>
+      )}
+
+      {previewingTrack?.audioUrl && (
+        <audio
+          ref={previewAudioRef}
+          src={previewingTrack.audioUrl}
+          autoPlay
+          onEnded={() => setPreviewingId(null)}
+          className="hidden"
+        />
       )}
     </div>
   );
