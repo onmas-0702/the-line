@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, Upload, CheckCircle2, AlertCircle, Play, Pause, Undo2, Image as ImageIcon } from "lucide-react";
+import { Mic, Upload, CheckCircle2, AlertCircle, Play, Pause, Undo2, Image as ImageIcon, ListChecks } from "lucide-react";
 import ClipTimeline from "@/components/ClipTimeline";
 import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
 import DesignSkinPanel from "@/components/DesignSkinPanel";
+import ManageContentPanel from "@/components/ManageContentPanel";
 import {
   DEFAULT_VOICE_OFFSET_SECONDS,
   audioBufferToWavBlob,
@@ -43,7 +44,8 @@ function pickMimeType() {
 export default function RecordPage() {
   const { addAudio, addAudioFromRow, personalTracks } = useAppStore();
 
-  // 페이지 최상단 탭: 콘텐츠 제작(녹음/편집/저장) vs 디자인 적용(전체 배경 스킨).
+  // 페이지 최상단 탭: 제작(녹음/편집/저장) / 콘텐츠 관리(업로드한 것 삭제·편집) /
+  // 디자인(전체 배경 스킨).
   const [mainTab, setMainTab] = useState("content");
   const [activeTab, setActiveTab] = useState("record");
   const [isRecording, setIsRecording] = useState(false);
@@ -456,7 +458,16 @@ export default function RecordPage() {
             mainTab === "content" ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
           }`}
         >
-          <Mic size={14} /> 콘텐츠 제작
+          <Mic size={14} /> 제작
+        </button>
+        <button
+          type="button"
+          onClick={() => setMainTab("manage")}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 transition ${
+            mainTab === "manage" ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
+          }`}
+        >
+          <ListChecks size={14} /> 콘텐츠 관리
         </button>
         <button
           type="button"
@@ -465,12 +476,14 @@ export default function RecordPage() {
             mainTab === "design" ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
           }`}
         >
-          <ImageIcon size={14} /> 디자인 적용
+          <ImageIcon size={14} /> 디자인
         </button>
       </div>
 
       {mainTab === "design" ? (
         <DesignSkinPanel />
+      ) : mainTab === "manage" ? (
+        <ManageContentPanel />
       ) : (
       <>
       <section>
