@@ -29,6 +29,10 @@ function segmentLabel(seg, idx) {
 const MIN_VOICE_OFFSET = 0;
 const MAX_VOICE_OFFSET = 30;
 
+// 자르기 모드에서 클립 위에 마우스를 올렸을 때 보여줄 가위 모양 커서.
+// 실제 이미지 파일 없이 SVG를 데이터 URI로 인라인해서 씁니다.
+const SCISSORS_CURSOR = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="%23b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>') 2 2, crosshair`;
+
 export default function ClipTimeline({
   segments,
   onChange,
@@ -211,6 +215,59 @@ export default function ClipTimeline({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 스페이스바로 재생/정지 (핸드폰 등 터치 기기는 제외 — 가상 키보드가 없어
+  // 스페이스바 자체가 의미 없기도 하고, 화면 스크롤과 충돌할 수 있어서요).
+  // 입력창에 포커스가 있을 때는 원래의 스페이스 입력(띄어쓰기)을 그대로 둡니다.
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.code !== "Space" && e.key !== " ") return;
+      const isTouchDevice =
+        typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+      if (isTouchDevice) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) return;
+      e.preventDefault();
+      togglePlay();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Delete / Backspace 키로도 선택된 구간을 지울 수 있게 합니다(맥 키보드의
+  // "delete" 키는 실제로는 Backspace 이벤트를 보냅니다).
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      if (!selected) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) return;
+      e.preventDefault();
+      deleteSelected();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+
+  // 클립을 클릭한 위치에 맞춰 재생 헤드(세로선)를 옮깁니다 — 재생 중이면
+  // 그 위치부터 이어서 들리도록 실제로 탐색(seek)도 함께 합니다.
+  function seekToSegment(e, seg, idx) {
+    if (seg.type !== "clip" || timelineSeconds <= 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const fractionWithinSeg = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    let cumulative = hasBackground ? voiceOffsetSeconds : 0;
+    for (let i = 0; i < idx; i++) {
+      cumulative += segments[i].duration || 0;
+    }
+    const absoluteSeconds = cumulative + (seg.duration || 0) * fractionWithinSeg;
+    const percent = Math.max(0, Math.min(100, (absoluteSeconds / timelineSeconds) * 100));
+    setPlayheadPercent(percent);
+    if (isPlaying) {
+      playFrom((percent / 100) * (previewBuffer?.duration || 0));
+    }
+  }
+
   function seekTo(clientX) {
     if (!railRef.current || !previewBuffer) return;
     const rect = railRef.current.getBoundingClientRect();
@@ -225,7 +282,7 @@ export default function ClipTimeline({
     seekTo(e.clientX);
   }
 
-  function handleSegmentClick(e, seg) {
+  function handleSegmentClick(e, seg, idx) {
     if (cutMode && seg.type === "clip") {
       const rect = e.currentTarget.getBoundingClientRect();
       const fraction = (e.clientX - rect.left) / rect.width;
@@ -235,6 +292,7 @@ export default function ClipTimeline({
       return;
     }
     setSelectedId(seg.id === selectedId ? null : seg.id);
+    seekToSegment(e, seg, idx);
   }
 
   function splitSegment(id, fraction) {
@@ -450,7 +508,7 @@ export default function ClipTimeline({
               <button
                 key={seg.id}
                 type="button"
-                onClick={(e) => handleSegmentClick(e, seg)}
+                onClick={(e) => handleSegmentClick(e, seg, idx)}
                 style={{ width: `${widthPercent}%` }}
                 className={`flex h-full min-w-[16px] items-center justify-center border-2 border-dashed text-[10px] text-stone-400 transition ${
                   isSelected ? "border-amber-600 bg-amber-50" : "border-stone-300 bg-stone-50"
@@ -469,11 +527,11 @@ export default function ClipTimeline({
               onDragStart={() => handleDragStart(seg.id)}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => handleDropOn(seg.id)}
-              onClick={(e) => handleSegmentClick(e, seg)}
-              style={{ width: `${widthPercent}%` }}
+              onClick={(e) => handleSegmentClick(e, seg, idx)}
+              style={{ width: `${widthPercent}%`, ...(cutMode ? { cursor: SCISSORS_CURSOR } : {}) }}
               className={`group relative flex h-full min-w-[96px] cursor-pointer flex-col justify-end overflow-hidden rounded-md border-2 px-1 pb-1 transition ${
                 isSelected ? "border-amber-700 bg-amber-50" : "border-stone-200 bg-stone-50 hover:border-stone-300"
-              } ${cutMode ? "cursor-crosshair" : ""}`}
+              }`}
               title={segmentLabel(seg, idx)}
             >
               <div className="pointer-events-none absolute left-1 top-1 flex items-center gap-0.5 text-stone-400">
@@ -554,15 +612,6 @@ export default function ClipTimeline({
         />
       )}
       </div>
-
-      <p className="mt-2 text-xs text-stone-400">
-        클립을 드래그해서 순서를 바꾸고(클립이동), 자르기 도구로 파형을 클릭해 두 클립으로 나누세요.
-        클립 우측 상단의 ▶ / 휴지통 아이콘으로 그 클립만 미리듣고 마음에 안 들면 통째로 바로 삭제할 수 있어요.
-        (구간 삭제 버튼으로 지우면 빈 공간이 남고, 빈 공간을 다시 선택해 삭제하면 자석처럼 옆 클립과 이어붙는
-        정밀 편집용 방식입니다.) 재생 버튼은 실제 녹음/업로드된 오디오를 그대로 재생하고, 배경음악을
-        선택했다면 맨 앞의 하늘색 구간(배경음악 인트로) 오른쪽 손잡이를 드래그해서 목소리가 시작되는
-        시점을 자유롭게 조정할 수 있어요. 아래 파란 트랙에 같은 시간축으로 표시되며 함께 섞여 재생됩니다.
-      </p>
     </div>
   );
 }

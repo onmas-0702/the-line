@@ -81,22 +81,23 @@ export default function RecordPage() {
   const chunksRef = useRef([]);
   const recordTimerRef = useRef(null);
   const previewSourceRef = useRef(null);
-  const previousSegmentsRef = useRef(null);
+  // segments 변경 이력을 스택으로 쌓아둬서 실행 취소를 여러 번 계속 누를 수
+  // 있게 합니다(이론상 메모리가 허용하는 한 무제한).
+  const historyRef = useRef([]);
   const [canUndo, setCanUndo] = useState(false);
 
   // segments를 바꾸는 모든 경로(녹음/업로드로 클립 추가, 편집 타임라인의 자르기/삭제/
-  // 순서변경)가 이 함수를 거치도록 해서, 바뀌기 직전 상태를 한 단계 기억해둡니다.
+  // 순서변경)가 이 함수를 거치도록 해서, 바뀌기 직전 상태를 이력에 쌓아둡니다.
   function updateSegments(next) {
-    previousSegmentsRef.current = segments;
+    historyRef.current.push(segments);
     setCanUndo(true);
     setSegments((prev) => (typeof next === "function" ? next(prev) : next));
   }
 
   function undo() {
-    if (previousSegmentsRef.current === null) return;
-    const restored = previousSegmentsRef.current;
-    previousSegmentsRef.current = null;
-    setCanUndo(false);
+    if (historyRef.current.length === 0) return;
+    const restored = historyRef.current.pop();
+    setCanUndo(historyRef.current.length > 0);
     setSegments(restored);
   }
 
@@ -174,8 +175,17 @@ export default function RecordPage() {
       return;
     }
     try {
+      // autoGainControl을 켜둔 채로 두면 브라우저가 녹음 시작 후 처음 몇 초 동안
+      // 입력 레벨을 계속 다시 맞추면서 "커졌다가 작아지는" 것처럼 들리는 현상이
+      // 생겨서, 여기서는 꺼둡니다(에코 제거·노이즈 억제는 음성 녹음에 도움이 되니
+      // 그대로 켜둡니다).
       const constraints = {
-        audio: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true,
+        audio: {
+          ...(selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}),
+          autoGainControl: false,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
@@ -348,7 +358,7 @@ export default function RecordPage() {
 
   function resetForm() {
     setSegments([]);
-    previousSegmentsRef.current = null;
+    historyRef.current = [];
     setCanUndo(false);
     setVoiceOffsetSeconds(DEFAULT_VOICE_OFFSET_SECONDS);
     setTitle("");
@@ -567,7 +577,7 @@ export default function RecordPage() {
             onClick={undo}
             disabled={!canUndo}
             className="flex items-center gap-1.5 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
-            title="바로 전 상태로 되돌리기 (Ctrl+Z / Cmd+Z)"
+            title="이전 상태로 계속 되돌리기 (Ctrl+Z / Cmd+Z)"
           >
             <Undo2 size={13} /> 실행 취소
           </button>

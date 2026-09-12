@@ -7,7 +7,7 @@ import { useAppStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function DesignSkinPanel() {
-  const { skinImageUrl, setSkinImage, resetSkinImage } = useAppStore();
+  const { skinImageUrl, setSkinImage, resetSkinImage, textColor, setTextColor } = useAppStore();
   const [previewFile, setPreviewFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [isApplying, setIsApplying] = useState(false);
@@ -66,12 +66,13 @@ export default function DesignSkinPanel() {
     <div className="space-y-4">
       <div className="rounded-xl border border-stone-200 bg-white p-4">
         <p className="flex items-center gap-1.5 text-sm font-medium text-stone-800">
-          <ImageIcon size={15} /> 배경 이미지 하나로 전체 화면 디자인을 입힙니다
+          <ImageIcon size={15} /> 배경 이미지 하나로 홈 화면 디자인을 입힙니다
         </p>
         <p className="mt-1.5 text-xs leading-relaxed text-stone-500">
-          업로드한 이미지 한 장이 모든 페이지의 배경으로 깔리고, 그 위에 콘텐츠 카드들이
-          그대로 얹히는 방식이에요(카드 자체 디자인은 바뀌지 않아요). 지금은 모바일 화면
-          기준으로 맞춰뒀습니다.
+          업로드한 이미지 한 장이 홈 화면 전체(맨 위 로고·메뉴 영역까지)의 배경으로
+          깔려서 하나의 그림 같은 느낌을 줘요. &ldquo;제작/관리&rdquo; 페이지 등 다른 화면은
+          작업에 방해되지 않도록 원래의 흰 배경을 그대로 유지합니다. 지금은 모바일
+          화면 기준으로 맞춰뒀습니다.
         </p>
         <div className="mt-3 rounded-lg bg-stone-50 p-3 text-xs text-stone-500">
           <p className="font-medium text-stone-600">권장 이미지 사양</p>
@@ -110,6 +111,22 @@ export default function DesignSkinPanel() {
             <RotateCcw size={13} /> 기본 화면으로 되돌리기
           </button>
         )}
+
+        <div className="mt-4 flex items-center justify-between border-t border-stone-100 pt-3">
+          <div>
+            <p className="text-xs font-medium text-stone-600">홈 화면 글자색</p>
+            <p className="mt-0.5 text-[11px] text-stone-400">
+              배경 이미지 위에 올라가는 제목·목록 글자 색이에요.
+            </p>
+          </div>
+          <input
+            type="color"
+            value={textColor || "#ffffff"}
+            onChange={(e) => setTextColor(e.target.value)}
+            className="h-9 w-9 cursor-pointer rounded-lg border border-stone-300 bg-white p-0.5"
+            aria-label="홈 화면 글자색 선택"
+          />
+        </div>
       </div>
 
       <div className="rounded-xl border border-dashed border-stone-300 bg-white p-4">

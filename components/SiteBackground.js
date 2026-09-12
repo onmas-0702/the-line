@@ -1,15 +1,16 @@
 "use client";
 
-// 전체 배경 이미지 스킨 — "제작/관리 → 디자인 적용"에서 적용한 이미지가 있으면
-// 모든 페이지 뒤에 고정된 전체 화면 배경으로 깔립니다. 콘텐츠 카드들은 흰 배경을
-// 그대로 유지해서(반투명 헤더/네비게이션 제외) 가독성은 유지하면서, 카드 사이
-// 여백과 상/하단에서 이미지가 비쳐 보이는 "배경 이미지 위 콘텐츠 오버레이" 방식입니다.
+// 전체 배경 이미지 스킨 — 홈 화면("/")에서만 보입니다. "제작/관리" 등 다른
+// 페이지는 일반적인 흰색 배경을 그대로 유지합니다(콘텐츠 제작 중에는 배경
+// 이미지가 방해되지 않도록).
+import { usePathname } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 
 export default function SiteBackground() {
+  const pathname = usePathname();
   const { skinImageUrl } = useAppStore();
 
-  if (!skinImageUrl) return null;
+  if (pathname !== "/" || !skinImageUrl) return null;
 
   return (
     <div

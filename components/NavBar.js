@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Mic, LogIn } from "lucide-react";
 import { SITE_NAME } from "@/lib/mockData";
+import { useAppStore } from "@/lib/store";
 
 const links = [
   { href: "/", label: "홈", icon: Home },
@@ -12,6 +13,72 @@ const links = [
 
 export default function NavBar() {
   const pathname = usePathname();
+  const { skinImageUrl, textColor } = useAppStore();
+  // 홈 화면에 배경 스킨이 적용되어 있을 때만 "한 장의 그림" 같은 느낌을 위해
+  // 상단/하단 내비게이션을 투명한 아이콘(말풍선 모양 칩)만 남기고, 그 외
+  // 페이지는 원래의 일반 흰색 내비게이션을 그대로 씁니다.
+  const minimalHome = pathname === "/" && Boolean(skinImageUrl);
+  const iconColor = textColor || "#ffffff";
+
+  if (minimalHome) {
+    return (
+      <>
+        <header className="sticky top-0 z-10">
+          <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+            <Link
+              href="/"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-sm font-semibold backdrop-blur-sm"
+              style={{ color: iconColor }}
+              aria-label={SITE_NAME}
+            >
+              은
+            </Link>
+            <div className="flex items-center gap-1.5">
+              <Link
+                href="/record"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm transition hover:bg-white/25"
+                style={{ color: iconColor }}
+                aria-label="제작/관리"
+              >
+                <Mic size={16} />
+              </Link>
+              <Link
+                href="/login"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm transition hover:bg-white/25"
+                style={{ color: iconColor }}
+                aria-label="로그인"
+              >
+                <LogIn size={16} />
+              </Link>
+            </div>
+          </div>
+        </header>
+
+        <nav className="fixed inset-x-0 bottom-0 z-10 sm:hidden">
+          <div className="mx-auto flex max-w-3xl items-center justify-center gap-3 px-4 pb-4">
+            {links.map((link) => {
+              const active = pathname === link.href;
+              const Icon = link.icon;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-sm transition"
+                  style={{
+                    color: iconColor,
+                    backgroundColor: active ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)",
+                  }}
+                  aria-label={link.label}
+                >
+                  <Icon size={18} strokeWidth={active ? 2.4 : 2} />
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      </>
+    );
+  }
 
   return (
     <>
