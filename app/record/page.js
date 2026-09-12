@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, Upload, CheckCircle2, AlertCircle, Play, Pause, Undo2 } from "lucide-react";
+import { Mic, Upload, CheckCircle2, AlertCircle, Play, Pause, Undo2, Image as ImageIcon } from "lucide-react";
 import ClipTimeline from "@/components/ClipTimeline";
 import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
+import DesignSkinPanel from "@/components/DesignSkinPanel";
 import {
   DEFAULT_VOICE_OFFSET_SECONDS,
   audioBufferToWavBlob,
@@ -42,6 +43,8 @@ function pickMimeType() {
 export default function RecordPage() {
   const { addAudio, addAudioFromRow, personalTracks } = useAppStore();
 
+  // 페이지 최상단 탭: 콘텐츠 제작(녹음/편집/저장) vs 디자인 적용(전체 배경 스킨).
+  const [mainTab, setMainTab] = useState("content");
   const [activeTab, setActiveTab] = useState("record");
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
@@ -428,8 +431,40 @@ export default function RecordPage() {
 
   return (
     <div className="space-y-8">
+      <div>
+        <h1 className="text-lg font-semibold text-stone-900">제작/관리</h1>
+        <p className="mt-1 text-sm text-stone-500">
+          나눔을 녹음·편집·저장하거나, 사이트 전체 디자인(배경 스킨)을 관리하세요.
+        </p>
+      </div>
+
+      <div className="flex gap-1 rounded-full bg-stone-100 p-1 text-sm">
+        <button
+          type="button"
+          onClick={() => setMainTab("content")}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 transition ${
+            mainTab === "content" ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
+          }`}
+        >
+          <Mic size={14} /> 콘텐츠 제작
+        </button>
+        <button
+          type="button"
+          onClick={() => setMainTab("design")}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 transition ${
+            mainTab === "design" ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
+          }`}
+        >
+          <ImageIcon size={14} /> 디자인 적용
+        </button>
+      </div>
+
+      {mainTab === "design" ? (
+        <DesignSkinPanel />
+      ) : (
+      <>
       <section>
-        <h1 className="text-lg font-semibold text-stone-900">녹음 / 믹싱</h1>
+        <h2 className="text-base font-semibold text-stone-900">녹음 / 믹싱</h2>
         <p className="mt-1 text-sm text-stone-500">
           직접 녹음하거나 파일을 업로드해서 짧은 나눔을 만들어보세요.
         </p>
@@ -750,6 +785,8 @@ export default function RecordPage() {
           {isSaving ? "믹싱 중…" : "업로드"}
         </button>
       </div>
+      </>
+      )}
     </div>
   );
 }

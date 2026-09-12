@@ -7,7 +7,7 @@ import { SITE_NAME } from "@/lib/mockData";
 
 const links = [
   { href: "/", label: "홈", icon: Home },
-  { href: "/record", label: "녹음/업로드", icon: Mic },
+  { href: "/record", label: "제작/관리", icon: Mic },
 ];
 
 export default function NavBar() {

@@ -1,5 +1,6 @@
 import "./globals.css";
 import NavBar from "@/components/NavBar";
+import SiteBackground from "@/components/SiteBackground";
 import { AppStoreProvider } from "@/lib/store";
 import { SITE_NAME } from "@/lib/mockData";
 
@@ -13,6 +14,7 @@ export default function RootLayout({ children }) {
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-stone-50 text-stone-800">
         <AppStoreProvider>
+          <SiteBackground />
           <NavBar />
           <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-24 sm:pb-6">
             {children}
