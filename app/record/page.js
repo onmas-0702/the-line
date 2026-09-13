@@ -7,10 +7,12 @@ import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
 import DesignSkinPanel from "@/components/DesignSkinPanel";
 import ManageContentPanel from "@/components/ManageContentPanel";
 import {
+  BG_FADE_OUT_SECONDS,
   DEFAULT_VOICE_OFFSET_SECONDS,
   audioBufferToWavBlob,
   barsForDuration,
   buildContinuousBuffer,
+  computeBroadcastNormalizedGain,
   computeWaveformPeaks,
   decodeBlobToBuffer,
   decodeUrlToBuffer,
@@ -152,6 +154,9 @@ export default function RecordPage() {
     try {
       const buffer = await decodeBlobToBuffer(blob);
       const id = nextClipId();
+      // 녹음/업로드 직후 클립마다 "방송 표준" 기본 볼륨(피크 정규화)을 한 번
+      // 계산해두고, 이후 클립 안의 볼륨 슬라이더로 사용자가 다시 조정합니다.
+      const gain = computeBroadcastNormalizedGain(buffer);
       updateSegments((prev) => [
         ...prev,
         {
@@ -162,6 +167,7 @@ export default function RecordPage() {
           buffer,
           duration: buffer.duration,
           waveform: computeWaveformPeaks(buffer, barsForDuration(buffer.duration)),
+          gain,
         },
       ]);
       setMicError("");
@@ -618,7 +624,11 @@ export default function RecordPage() {
           배경음악 선택 &amp; 믹싱
         </h2>
         <div className="mt-3">
-          <BackgroundMusicPicker selectedTrackId={selectedTrack} onSelect={setSelectedTrack} />
+          <BackgroundMusicPicker
+            selectedTrackId={selectedTrack}
+            onSelect={setSelectedTrack}
+            volume={musicVolume / 100}
+          />
         </div>
 
         <div className="mt-4 rounded-xl border border-stone-200 bg-white p-4">
@@ -637,8 +647,9 @@ export default function RecordPage() {
           {selectedBackgroundTrack ? (
             <p className="mt-2 text-xs text-emerald-600">
               &quot;{selectedBackgroundTrack.name}&quot;이(가) 먼저 나오고, {voiceOffsetSeconds.toFixed(1)}초 후
-              목소리가 이어서 시작돼요. (편집 타임라인의 하늘색 인트로 구간을 드래그하면 길이를 바꿀 수
-              있어요 · 더킹 효과는 다음 단계로 남아있어요.)
+              목소리가 이어서 시작돼요. 끝부분은 자동으로 페이드아웃돼요(약 {BG_FADE_OUT_SECONDS}초).
+              (편집 타임라인의 하늘색 인트로 구간을 드래그하면 길이를 바꿀 수 있어요 · 더킹 효과는
+              다음 단계로 남아있어요.)
             </p>
           ) : (
             <p className="mt-2 text-xs text-stone-400">

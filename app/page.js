@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
+import { formatDuration } from "@/lib/audio";
 import { SITE_NAME } from "@/lib/mockData";
 import { useAppStore } from "@/lib/store";
 
@@ -12,7 +13,17 @@ import { useAppStore } from "@/lib/store";
 export default function HomePage() {
   const { audios, pageSize, skinImageUrl, textColor } = useAppStore();
   const [playingId, setPlayingId] = useState(null);
+  // 재생 중인 항목의 "남은 시간" — 재생과 동시에 전체 길이에서 거꾸로
+  // 줄어들다가 0:00이 되면 끝나는 카운트다운 표시용입니다.
+  const [remainingLabel, setRemainingLabel] = useState("");
   const audioRef = useRef(null);
+
+  function handleTimeUpdate() {
+    const el = audioRef.current;
+    if (!el || !Number.isFinite(el.duration)) return;
+    const remaining = Math.max(0, el.duration - el.currentTime);
+    setRemainingLabel(formatDuration(remaining));
+  }
 
   const sorted = useMemo(() => {
     const copy = [...audios];
@@ -38,6 +49,7 @@ export default function HomePage() {
     if (playingId === item.id) {
       el.pause();
       setPlayingId(null);
+      setRemainingLabel("");
       return;
     }
     el.pause();
@@ -45,6 +57,7 @@ export default function HomePage() {
     el.currentTime = 0;
     el.play().catch(() => {});
     setPlayingId(item.id);
+    setRemainingLabel(item.duration); // 재생 시작 직후 첫 timeupdate 전까지는 전체 길이로 시작
   }
 
   if (!latest) {
@@ -90,8 +103,8 @@ export default function HomePage() {
         >
           {playingId === latest.id ? <Pause size={30} /> : <Play size={30} className="ml-1" />}
         </button>
-        <p className={`text-xs ${isSkinned ? "" : "text-stone-400"}`} style={subStyle}>
-          {latest.duration}
+        <p className={`text-xs tabular-nums ${isSkinned ? "" : "text-stone-400"}`} style={subStyle}>
+          {playingId === latest.id ? remainingLabel : latest.duration}
         </p>
       </div>
 
@@ -116,8 +129,11 @@ export default function HomePage() {
                   {isPlayingThis ? <Pause size={13} className="shrink-0" /> : <Play size={13} className="shrink-0" />}
                   <span className="truncate">{item.title}</span>
                 </span>
-                <span className={`shrink-0 text-xs ${isSkinned ? "" : "text-stone-400"}`} style={subStyle}>
-                  {item.duration}
+                <span
+                  className={`shrink-0 text-xs tabular-nums ${isSkinned ? "" : "text-stone-400"}`}
+                  style={subStyle}
+                >
+                  {isPlayingThis ? remainingLabel : item.duration}
                 </span>
               </button>
             );
@@ -125,7 +141,15 @@ export default function HomePage() {
         </div>
       )}
 
-      <audio ref={audioRef} onEnded={() => setPlayingId(null)} className="hidden" />
+      <audio
+        ref={audioRef}
+        onTimeUpdate={handleTimeUpdate}
+        onEnded={() => {
+          setPlayingId(null);
+          setRemainingLabel("");
+        }}
+        className="hidden"
+      />
     </div>
   );
 }

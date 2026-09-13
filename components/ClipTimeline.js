@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Scissors, Magnet, Trash2, Play, Pause, GripVertical, Music, Move } from "lucide-react";
+import { Scissors, Magnet, Trash2, Play, Pause, GripVertical, Music, Move, GripHorizontal } from "lucide-react";
 import {
   DEFAULT_VOICE_OFFSET_SECONDS,
+  MAX_CLIP_GAIN,
+  MIN_CLIP_GAIN,
   barsForDuration,
   buildContinuousBuffer,
   computeTiledWaveformPeaks,
@@ -49,6 +51,7 @@ export default function ClipTimeline({
   const [dragId, setDragId] = useState(null);
   const [previewClipId, setPreviewClipId] = useState(null);
   const [isDraggingOffset, setIsDraggingOffset] = useState(false);
+  const [gainDraft, setGainDraft] = useState(null); // { id, gain } — 드래그 중 미리보기 값
   const railRef = useRef(null);
   const trackRowRef = useRef(null);
   const sourceRef = useRef(null);
@@ -56,7 +59,9 @@ export default function ClipTimeline({
   const rafRef = useRef(null);
   const firstRenderRef = useRef(true);
   const clipSourceRef = useRef(null);
+  const clipGainNodeRef = useRef(null);
   const offsetDragStateRef = useRef(null);
+  const gainDragStateRef = useRef(null);
 
   const totalSeconds = segments.reduce((sum, s) => sum + (s.duration || 0), 0);
   const hasGap = segments.some((s) => s.type === "gap");
@@ -157,10 +162,13 @@ export default function ClipTimeline({
       }
       clipSourceRef.current = null;
     }
+    clipGainNodeRef.current = null;
     setPreviewClipId(null);
   }
 
-  // 클립 하나만 짧게 미리듣기 — 전체 타임라인 재생과는 별개입니다.
+  // 클립 하나만 짧게 미리듣기 — 전체 타임라인 재생과는 별개입니다. 클립의
+  // 볼륨(seg.gain)을 GainNode로 그대로 반영해서, 여기서 들리는 소리가 실제
+  // 최종 믹스에서 들리는 것과 같도록 합니다.
   function toggleClipPreview(seg) {
     if (!seg.buffer) return;
     if (previewClipId === seg.id) {
@@ -170,14 +178,19 @@ export default function ClipTimeline({
     stopClipPreview();
     const ctx = getAudioContext();
     const source = ctx.createBufferSource();
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = seg.gain ?? 1;
     source.buffer = seg.buffer;
-    source.connect(ctx.destination);
+    source.connect(gainNode);
+    gainNode.connect(ctx.destination);
     source.onended = () => {
       setPreviewClipId((prev) => (prev === seg.id ? null : prev));
       clipSourceRef.current = null;
+      clipGainNodeRef.current = null;
     };
     source.start(0);
     clipSourceRef.current = source;
+    clipGainNodeRef.current = gainNode;
     setPreviewClipId(seg.id);
   }
 
@@ -210,6 +223,10 @@ export default function ClipTimeline({
       if (offsetDragStateRef.current) {
         window.removeEventListener("mousemove", handleOffsetDragMove);
         window.removeEventListener("mouseup", handleOffsetDragEnd);
+      }
+      if (gainDragStateRef.current) {
+        window.removeEventListener("mousemove", handleGainDragMove);
+        window.removeEventListener("mouseup", handleGainDragEnd);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -401,6 +418,47 @@ export default function ClipTimeline({
     window.removeEventListener("mouseup", handleOffsetDragEnd);
   }
 
+  // 클립 중앙의 수직선을 위/아래로 드래그해서 그 클립만의 볼륨을 조절합니다.
+  // 드래그 중에는 화면에만 미리 보여주고(gainDraft), 손을 뗄 때 한 번만
+  // segments에 반영합니다 — 매 마우스 이동마다 실행취소 이력이 쌓이는 걸
+  // 막기 위해서예요.
+  function handleGainDragStart(e, seg) {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const initialGain = seg.gain ?? 1;
+    gainDragStateRef.current = {
+      id: seg.id,
+      rectTop: rect.top,
+      rectHeight: rect.height || 1,
+      currentGain: initialGain,
+    };
+    setGainDraft({ id: seg.id, gain: initialGain });
+    window.addEventListener("mousemove", handleGainDragMove);
+    window.addEventListener("mouseup", handleGainDragEnd);
+  }
+
+  function handleGainDragMove(e) {
+    const state = gainDragStateRef.current;
+    if (!state) return;
+    // 위쪽일수록 볼륨이 커지고(fraction→1), 아래쪽일수록 작아집니다(fraction→0).
+    const fraction = 1 - Math.max(0, Math.min(1, (e.clientY - state.rectTop) / state.rectHeight));
+    const gain = Math.max(MIN_CLIP_GAIN, Math.min(MAX_CLIP_GAIN, Math.round(fraction * MAX_CLIP_GAIN * 100) / 100));
+    state.currentGain = gain;
+    setGainDraft({ id: state.id, gain });
+  }
+
+  function handleGainDragEnd() {
+    const state = gainDragStateRef.current;
+    gainDragStateRef.current = null;
+    window.removeEventListener("mousemove", handleGainDragMove);
+    window.removeEventListener("mouseup", handleGainDragEnd);
+    if (state) {
+      onChange(segments.map((s) => (s.id === state.id ? { ...s, gain: state.currentGain } : s)));
+    }
+    setGainDraft(null);
+  }
+
   const elapsedSeconds = (playheadPercent / 100) * displayTotalSeconds;
   const introWidthPercent =
     hasBackground && timelineSeconds > 0 ? (voiceOffsetSeconds / timelineSeconds) * 100 : 0;
@@ -520,6 +578,9 @@ export default function ClipTimeline({
             );
           }
           const previewingThis = previewClipId === seg.id;
+          const effectiveGain =
+            gainDraft?.id === seg.id ? gainDraft.gain : seg.gain ?? 1;
+          const gainHandleTopPercent = (1 - Math.min(1, effectiveGain / MAX_CLIP_GAIN)) * 100;
           return (
             <div
               key={seg.id}
@@ -571,10 +632,29 @@ export default function ClipTimeline({
                   <span
                     key={i}
                     className={`w-full rounded-sm ${isSelected ? "bg-amber-500" : "bg-amber-300"}`}
-                    style={{ height: `${v}%` }}
+                    style={{ height: `${Math.min(100, v * effectiveGain)}%` }}
                   />
                 ))}
               </div>
+
+              {/* 클립 중앙의 볼륨 슬라이더 — 수직선을 위/아래로 드래그하면 이
+                  클립만의 볼륨이 오르내립니다(가운데=100%, 위쪽 끝=200%,
+                  아래쪽 끝=음소거). */}
+              <div
+                onMouseDown={(e) => handleGainDragStart(e, seg)}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute inset-y-1.5 left-1/2 z-10 flex w-6 -translate-x-1/2 cursor-ns-resize items-start justify-center"
+                title={`볼륨 ${Math.round(effectiveGain * 100)}% (드래그해서 조절)`}
+              >
+                <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-stone-400/50 group-hover:bg-stone-500/70" />
+                <div
+                  className="pointer-events-none absolute left-1/2 flex h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-amber-600 shadow"
+                  style={{ top: `${gainHandleTopPercent}%` }}
+                >
+                  <GripHorizontal size={8} className="text-white" />
+                </div>
+              </div>
+
               <div className="pointer-events-none absolute bottom-1 right-1 text-[10px] text-stone-400">
                 {formatDuration(seg.duration)}
               </div>

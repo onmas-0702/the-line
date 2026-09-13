@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Play, Pause, Upload, Trash2, Library, Layers } from "lucide-react";
 import { decodeBlobToBuffer } from "@/lib/audio";
 import { uploadBackgroundTrack } from "@/lib/audioStorage";
@@ -55,7 +55,7 @@ function TrackRow({ track, selected, onSelect, previewing, onPreview, onDelete }
   );
 }
 
-export default function BackgroundMusicPicker({ selectedTrackId, onSelect }) {
+export default function BackgroundMusicPicker({ selectedTrackId, onSelect, volume = 1 }) {
   const { personalTracks, addPersonalTrack, addPersonalTrackFromRow, deletePersonalTrack } = useAppStore();
   const [activeSection, setActiveSection] = useState("official");
   const [openThemeId, setOpenThemeId] = useState(officialBackgroundThemes[0]?.id ?? null);
@@ -63,6 +63,14 @@ export default function BackgroundMusicPicker({ selectedTrackId, onSelect }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const previewAudioRef = useRef(null);
+  const clampedVolume = Math.max(0, Math.min(1, volume));
+
+  // 미리듣기 중에 볼륨 슬라이더를 움직이면 바로 반영되도록 실시간으로
+  // 동기화합니다 — "볼륨을 적용한 뒤 미리듣기"가 아니라 미리듣기 중에도
+  // 슬라이더를 움직이는 즉시 들리는 소리가 바뀝니다.
+  useEffect(() => {
+    if (previewAudioRef.current) previewAudioRef.current.volume = clampedVolume;
+  }, [clampedVolume]);
 
   // 재생을 클릭 핸들러 안에서 직접(동기적으로) 호출해야 브라우저의 자동재생
   // 정책에 안전하게 걸리지 않습니다 — useEffect로 늦게 play()를 호출하면
@@ -82,6 +90,7 @@ export default function BackgroundMusicPicker({ selectedTrackId, onSelect }) {
     el.pause();
     el.src = track.audioUrl;
     el.currentTime = 0;
+    el.volume = clampedVolume;
     el.play().catch(() => {});
     setPreviewingId(track.id);
   }
@@ -208,7 +217,7 @@ export default function BackgroundMusicPicker({ selectedTrackId, onSelect }) {
                 selected={selectedTrackId === track.id}
                 onSelect={() => onSelect(track.id)}
                 previewing={previewingId === track.id}
-                onPreview={() => togglePreview(track.id)}
+                onPreview={() => togglePreview(track)}
                 onDelete={() => {
                   deletePersonalTrack(track.id);
                   if (selectedTrackId === track.id) onSelect(null);
