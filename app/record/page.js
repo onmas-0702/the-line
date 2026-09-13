@@ -79,12 +79,20 @@ export default function RecordPage() {
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [isMixing, setIsMixing] = useState(false);
   const [bgMixError, setBgMixError] = useState("");
+  // 완성본 미리듣기 슬라이드바 진행률(0~100) — 실제 재생 위치와 항상 같이 움직입니다.
+  const [previewPercent, setPreviewPercent] = useState(0);
+  // 실제로 믹싱된 완성본의 길이(초) — 한 번 재생/믹싱을 해봐야 정확히 알 수 있어서,
+  // 재생 전에는 아래 finalPreviewSeconds(추정치)를 대신 보여줍니다.
+  const [previewDuration, setPreviewDuration] = useState(0);
 
   const streamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const recordTimerRef = useRef(null);
   const previewSourceRef = useRef(null);
+  const previewBufferRef = useRef(null);
+  const previewStartedAtRef = useRef(0);
+  const previewRafRef = useRef(null);
   // segments 변경 이력을 스택으로 쌓아둬서 실행 취소를 여러 번 계속 누를 수
   // 있게 합니다(이론상 메모리가 허용하는 한 무제한).
   const historyRef = useRef([]);
@@ -322,7 +330,52 @@ export default function RecordPage() {
       }
       previewSourceRef.current = null;
     }
+    cancelAnimationFrame(previewRafRef.current);
     setIsPreviewPlaying(false);
+  }
+
+  function previewTick() {
+    const ctx = getAudioContext();
+    const buffer = previewBufferRef.current;
+    if (!previewSourceRef.current || !buffer) return;
+    const elapsed = ctx.currentTime - previewStartedAtRef.current;
+    const pct = Math.min(100, (elapsed / buffer.duration) * 100);
+    setPreviewPercent(pct);
+    if (pct >= 100) {
+      stopPreviewPlayback();
+      setPreviewPercent(0);
+      return;
+    }
+    previewRafRef.current = requestAnimationFrame(previewTick);
+  }
+
+  // 캐시해둔 완성본 버퍼(previewBufferRef)를 임의의 지점부터 재생합니다 —
+  // 슬라이드바를 움직였을 때도 이 함수 하나로 이어서 재생합니다.
+  function playPreviewFrom(offsetSeconds) {
+    const buffer = previewBufferRef.current;
+    if (!buffer || buffer.duration <= 0) return;
+    if (previewSourceRef.current) {
+      try {
+        previewSourceRef.current.onended = null;
+        previewSourceRef.current.stop();
+      } catch (e) {
+        // already stopped
+      }
+    }
+    cancelAnimationFrame(previewRafRef.current);
+    const ctx = getAudioContext();
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    const clampedOffset = Math.max(0, Math.min(buffer.duration - 0.02, offsetSeconds));
+    source.start(0, clampedOffset);
+    previewSourceRef.current = source;
+    previewStartedAtRef.current = ctx.currentTime - clampedOffset;
+    source.onended = () => {
+      previewSourceRef.current = null;
+    };
+    setIsPreviewPlaying(true);
+    previewRafRef.current = requestAnimationFrame(previewTick);
   }
 
   // 정보 입력 전에, 지금까지 편집한 결과(빈 공간 제외, 실제 배경음악이 선택되어 있으면
@@ -337,19 +390,23 @@ export default function RecordPage() {
     try {
       const finalBuffer = await buildFinalMixedBuffer();
       if (!finalBuffer) return;
-      const ctx = getAudioContext();
-      const source = ctx.createBufferSource();
-      source.buffer = finalBuffer;
-      source.connect(ctx.destination);
-      source.onended = () => {
-        previewSourceRef.current = null;
-        setIsPreviewPlaying(false);
-      };
-      source.start(0);
-      previewSourceRef.current = source;
-      setIsPreviewPlaying(true);
+      previewBufferRef.current = finalBuffer;
+      setPreviewDuration(finalBuffer.duration);
+      playPreviewFrom((previewPercent / 100) * finalBuffer.duration);
     } finally {
       setIsMixing(false);
+    }
+  }
+
+  // 슬라이드바(막대) 클릭 — 재생 중이면 그 지점으로 바로 이어서 재생하고,
+  // 멈춰 있으면 다음에 재생 버튼을 눌렀을 때 이 지점부터 시작하도록
+  // 위치만 기억해둡니다.
+  function handlePreviewSeek(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setPreviewPercent(fraction * 100);
+    if (isPreviewPlaying && previewBufferRef.current) {
+      playPreviewFrom(fraction * previewBufferRef.current.duration);
     }
   }
 
@@ -360,6 +417,9 @@ export default function RecordPage() {
       return;
     }
     stopPreviewPlayback();
+    setPreviewPercent(0);
+    setPreviewDuration(0);
+    previewBufferRef.current = null; // 편집 내용이 바뀌면 캐시된 완성본도 다시 만들어야 합니다.
   }, [segments]);
 
   useEffect(() => stopPreviewPlayback, []);
@@ -667,25 +727,56 @@ export default function RecordPage() {
           정보를 입력하기 전에, 지금까지 편집한 결과가 실제로 어떻게 들리는지 먼저 확인해보세요.
           (빈 공간은 제외하고, 실제 배경음악이 선택되어 있으면 그것까지 합쳐서 — 저장했을 때와 똑같이 재생됩니다.)
         </p>
-        <div className="mt-3 flex items-center gap-4 rounded-xl border border-stone-200 bg-white p-4">
-          <button
-            type="button"
-            onClick={togglePreviewPlayback}
-            disabled={clipCount === 0 || isMixing}
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-amber-700 text-white shadow-sm transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-stone-300"
-            aria-label={isPreviewPlaying ? "미리듣기 정지" : "미리듣기 재생"}
-          >
-            {isPreviewPlaying ? <Pause size={22} /> : <Play size={22} />}
-          </button>
-          <p className="text-sm text-stone-600">
-            {clipCount === 0
-              ? "먼저 녹음하거나 파일을 업로드해주세요."
-              : isMixing
-              ? "믹싱 준비 중…"
-              : isPreviewPlaying
-              ? "재생 중…"
-              : `총 ${formatDuration(finalPreviewSeconds)} · 눌러서 미리듣기`}
-          </p>
+        <div className="mt-3 rounded-xl border border-stone-200 bg-white p-4">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={togglePreviewPlayback}
+              disabled={clipCount === 0 || isMixing}
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-amber-700 text-white shadow-sm transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+              aria-label={isPreviewPlaying ? "미리듣기 정지" : "미리듣기 재생"}
+            >
+              {isPreviewPlaying ? <Pause size={22} /> : <Play size={22} />}
+            </button>
+            <p className="text-sm text-stone-600">
+              {clipCount === 0
+                ? "먼저 녹음하거나 파일을 업로드해주세요."
+                : isMixing
+                ? "믹싱 준비 중…"
+                : isPreviewPlaying
+                ? "재생 중…"
+                : `총 ${formatDuration(previewDuration || finalPreviewSeconds)} · 눌러서 미리듣기`}
+            </p>
+          </div>
+
+          {clipCount > 0 && (
+            <div className="mt-4">
+              <div
+                onClick={handlePreviewSeek}
+                className="relative h-2 w-full cursor-pointer rounded-full bg-stone-200"
+                role="slider"
+                aria-label="미리듣기 재생 위치"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(previewPercent)}
+              >
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-amber-700"
+                  style={{ width: `${previewPercent}%` }}
+                />
+                <div
+                  className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-amber-700 bg-white shadow-sm"
+                  style={{ left: `${previewPercent}%` }}
+                />
+              </div>
+              <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-stone-400">
+                <span>
+                  {formatDuration(((previewDuration || finalPreviewSeconds) * previewPercent) / 100)}
+                </span>
+                <span>{formatDuration(previewDuration || finalPreviewSeconds)}</span>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

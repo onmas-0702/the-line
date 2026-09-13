@@ -49,7 +49,6 @@ export default function ClipTimeline({
   const [isPlaying, setIsPlaying] = useState(false);
   const [playheadPercent, setPlayheadPercent] = useState(0);
   const [dragId, setDragId] = useState(null);
-  const [previewClipId, setPreviewClipId] = useState(null);
   const [isDraggingOffset, setIsDraggingOffset] = useState(false);
   const [gainDraft, setGainDraft] = useState(null); // { id, gain } — 드래그 중 미리보기 값
   const railRef = useRef(null);
@@ -58,8 +57,6 @@ export default function ClipTimeline({
   const startedAtRef = useRef(0);
   const rafRef = useRef(null);
   const firstRenderRef = useRef(true);
-  const clipSourceRef = useRef(null);
-  const clipGainNodeRef = useRef(null);
   const offsetDragStateRef = useRef(null);
   const gainDragStateRef = useRef(null);
 
@@ -152,55 +149,12 @@ export default function ClipTimeline({
     playFrom(offsetSeconds);
   }
 
-  function stopClipPreview() {
-    if (clipSourceRef.current) {
-      try {
-        clipSourceRef.current.onended = null;
-        clipSourceRef.current.stop();
-      } catch (e) {
-        // already stopped
-      }
-      clipSourceRef.current = null;
-    }
-    clipGainNodeRef.current = null;
-    setPreviewClipId(null);
-  }
-
-  // 클립 하나만 짧게 미리듣기 — 전체 타임라인 재생과는 별개입니다. 클립의
-  // 볼륨(seg.gain)을 GainNode로 그대로 반영해서, 여기서 들리는 소리가 실제
-  // 최종 믹스에서 들리는 것과 같도록 합니다.
-  function toggleClipPreview(seg) {
-    if (!seg.buffer) return;
-    if (previewClipId === seg.id) {
-      stopClipPreview();
-      return;
-    }
-    stopClipPreview();
-    const ctx = getAudioContext();
-    const source = ctx.createBufferSource();
-    const gainNode = ctx.createGain();
-    gainNode.gain.value = seg.gain ?? 1;
-    source.buffer = seg.buffer;
-    source.connect(gainNode);
-    gainNode.connect(ctx.destination);
-    source.onended = () => {
-      setPreviewClipId((prev) => (prev === seg.id ? null : prev));
-      clipSourceRef.current = null;
-      clipGainNodeRef.current = null;
-    };
-    source.start(0);
-    clipSourceRef.current = source;
-    clipGainNodeRef.current = gainNode;
-    setPreviewClipId(seg.id);
-  }
-
   // 녹음/업로드 직후 마음에 들지 않는 클립을 곧바로 완전히 삭제합니다.
   // (편집 중 자르기로 생긴 구간을 지우는 것과 달리, 빈 공간을 남기지 않고
   // 바로 사라지면서 뒤 클립이 앞으로 당겨집니다.)
   function deleteClipEntirely(id) {
     onChange(segments.filter((s) => s.id !== id));
     if (selectedId === id) setSelectedId(null);
-    if (previewClipId === id) stopClipPreview();
   }
 
   // Stop playback and reset the playhead whenever the edit list (or the
@@ -211,7 +165,6 @@ export default function ClipTimeline({
       return;
     }
     stopPlayback();
-    stopClipPreview();
     setIsPlaying(false);
     setPlayheadPercent(0);
   }, [segments, backgroundBuffer, voiceOffsetSeconds]);
@@ -219,7 +172,6 @@ export default function ClipTimeline({
   useEffect(() => {
     return () => {
       stopPlayback();
-      stopClipPreview();
       if (offsetDragStateRef.current) {
         window.removeEventListener("mousemove", handleOffsetDragMove);
         window.removeEventListener("mouseup", handleOffsetDragEnd);
@@ -241,9 +193,17 @@ export default function ClipTimeline({
       const isTouchDevice =
         typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
       if (isTouchDevice) return;
-      const tag = document.activeElement?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) return;
+      const active = document.activeElement;
+      const tag = active?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || active?.isContentEditable) return;
       e.preventDefault();
+      // 버튼에 포커스가 남아있으면(마우스로 자르기/재생 버튼 등을 클릭한 직후)
+      // 브라우저가 스페이스를 그 버튼의 클릭으로도 한 번 더 해석해서, 우리가
+      // 여기서 토글한 재생 상태를 곧바로 되돌려버리는 경우가 있었습니다.
+      // 포커스를 미리 없애서 그 "이중 토글"을 막습니다.
+      if (tag === "BUTTON" && active instanceof HTMLElement) {
+        active.blur();
+      }
       togglePlay();
     }
     window.addEventListener("keydown", handleKeyDown);
@@ -577,7 +537,6 @@ export default function ClipTimeline({
               </button>
             );
           }
-          const previewingThis = previewClipId === seg.id;
           const effectiveGain =
             gainDraft?.id === seg.id ? gainDraft.gain : seg.gain ?? 1;
           const gainHandleTopPercent = (1 - Math.min(1, effectiveGain / MAX_CLIP_GAIN)) * 100;
@@ -599,20 +558,9 @@ export default function ClipTimeline({
                 <GripVertical size={11} />
               </div>
 
-              {/* 이 클립만 짧게 미리듣기 / 통째로 완전 삭제 — 편집용 2단계 삭제와는 별개의 빠른 삭제 */}
+              {/* 클립 통째로 완전 삭제 — 편집용 2단계 삭제(선택 후 삭제)와는 별개의 빠른 삭제.
+                  미리듣기는 상단의 재생 버튼(붉은 원)으로 충분해서 별도 버튼은 두지 않습니다. */}
               <div className="absolute right-1 top-1 flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleClipPreview(seg);
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm hover:bg-white"
-                  aria-label="클립 미리듣기"
-                  title="이 클립만 미리듣기"
-                >
-                  {previewingThis ? <Pause size={18} /> : <Play size={18} />}
-                </button>
                 <button
                   type="button"
                   onClick={(e) => {
