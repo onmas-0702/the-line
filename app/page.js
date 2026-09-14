@@ -76,12 +76,6 @@ export default function HomePage() {
   return (
     <div className="flex min-h-[75vh] flex-col">
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-10 text-center">
-        <p
-          className={`text-xs uppercase tracking-widest ${isSkinned ? "" : "text-stone-400"}`}
-          style={subStyle}
-        >
-          {[latest.pastorName, latest.church].filter(Boolean).join(" · ")}
-        </p>
         <h1
           className={`max-w-xs text-xl font-semibold leading-snug ${isSkinned ? "" : "text-stone-900"}`}
           style={titleStyle}

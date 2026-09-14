@@ -12,7 +12,6 @@ import {
   audioBufferToWavBlob,
   barsForDuration,
   buildContinuousBuffer,
-  computeBroadcastNormalizedGain,
   computeWaveformPeaks,
   decodeBlobToBuffer,
   decodeUrlToBuffer,
@@ -165,9 +164,13 @@ export default function RecordPage() {
     try {
       const buffer = await decodeBlobToBuffer(blob);
       const id = nextClipId();
-      // 녹음/업로드 직후 클립마다 "방송 표준" 기본 볼륨(피크 정규화)을 한 번
-      // 계산해두고, 이후 클립 안의 볼륨 슬라이더로 사용자가 다시 조정합니다.
-      const gain = computeBroadcastNormalizedGain(buffer);
+      // 녹음/업로드 직후 클립의 기본 볼륨은 항상 중앙(1 = 원본 그대로, 조정 없음)에서
+      // 시작합니다. 예전엔 피크를 기준으로 자동 정규화 값을 계산해서 기본값으로 썼는데,
+      // 녹음 직후 오디오는 피크가 작을 때가 많아서 계산된 값이 최대치(200%)로 튀는
+      // 경우가 있었고, 그러면 업로드된 파일(보통 중앙 근처로 계산됨)과 시작 위치가
+      // 달라 보였습니다. 이제는 소스와 상관없이 항상 중앙에서 시작하고, 필요하면
+      // 클립 중앙의 볼륨 슬라이더로 직접 조정하면 됩니다.
+      const gain = 1;
       updateSegments((prev) => [
         ...prev,
         {
@@ -754,9 +757,10 @@ export default function RecordPage() {
           {selectedBackgroundTrack ? (
             <p className="mt-2 text-xs text-emerald-600">
               &quot;{selectedBackgroundTrack.name}&quot;이(가) 먼저 나오고, {voiceOffsetSeconds.toFixed(1)}초 후
-              목소리가 이어서 시작돼요. 메시지가 끝나면 배경음악만 약 {BG_FADE_OUT_SECONDS}초 더 이어지며
-              서서히 페이드아웃돼요. (편집 타임라인의 하늘색 인트로 구간을 드래그하면 길이를 바꿀 수 있어요 ·
-              더킹 효과는 다음 단계로 남아있어요.)
+              목소리가 이어서 시작돼요. 목소리가 나오기 직전부터는 배경음악이 자동으로 작아지고(더킹),
+              목소리가 나오는 동안 계속 낮게 유지돼요. 메시지가 끝나면 배경음악만 약 {BG_FADE_OUT_SECONDS}
+              초 더 이어지며 서서히 페이드아웃돼요. (편집 타임라인의 하늘색 인트로 구간을 드래그하면
+              길이를 바꿀 수 있어요.)
             </p>
           ) : (
             <p className="mt-2 text-xs text-stone-400">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Mic, LogIn } from "lucide-react";
+import { Home, Mic, LogIn, UserPlus } from "lucide-react";
 import { SITE_NAME } from "@/lib/mockData";
 import { useAppStore } from "@/lib/store";
 
@@ -35,20 +35,20 @@ export default function NavBar() {
             </Link>
             <div className="flex items-center gap-1.5">
               <Link
-                href="/record"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm transition hover:bg-white/25"
-                style={{ color: iconColor }}
-                aria-label="제작/관리"
-              >
-                <Mic size={16} />
-              </Link>
-              <Link
                 href="/login"
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm transition hover:bg-white/25"
                 style={{ color: iconColor }}
                 aria-label="로그인"
               >
                 <LogIn size={16} />
+              </Link>
+              <Link
+                href="/signup"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm transition hover:bg-white/25"
+                style={{ color: iconColor }}
+                aria-label="회원가입"
+              >
+                <UserPlus size={16} />
               </Link>
             </div>
           </div>
