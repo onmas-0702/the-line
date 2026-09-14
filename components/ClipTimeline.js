@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Scissors, Magnet, Trash2, Play, Pause, GripVertical, Music, Move, GripHorizontal } from "lucide-react";
+import {
+  Scissors,
+  Magnet,
+  Trash2,
+  Play,
+  Pause,
+  GripVertical,
+  Music,
+  Move,
+  GripHorizontal,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import {
   DEFAULT_VOICE_OFFSET_SECONDS,
   MAX_CLIP_GAIN,
@@ -31,6 +43,18 @@ function segmentLabel(seg, idx) {
 const MIN_VOICE_OFFSET = 0;
 const MAX_VOICE_OFFSET = 30;
 
+// 파형 확대(세로 확대) — 실제 오디오 길이(가로 폭)는 그대로 두고, 파형이
+// 그려지는 트랙의 "키(세로 높이)"만 키워서 더 세밀하게 보고 자를 수 있게
+// 합니다. 100%가 기본이자 최소값이고, 100%씩 눌러서 최대 300%까지 커집니다.
+const ZOOM_MIN = 100;
+const ZOOM_MAX = 300;
+const ZOOM_STEP = 25;
+const BASE_TRACK_HEIGHT_PX = 128; // h-32와 동일한 기본 높이
+
+// 자르기 모드에서 클릭 지점이 재생 헤드(현재 위치선)에서 이 픽셀 이내면,
+// 클릭한 정확한 픽셀 대신 재생 헤드의 정확한 위치로 달라붙듯 잘립니다.
+const CUT_SNAP_PIXELS = 10;
+
 // 자르기 모드에서 클립 위에 마우스를 올렸을 때 보여줄 가위 모양 커서.
 // 실제 이미지 파일 없이 SVG를 데이터 URI로 인라인해서 씁니다.
 const SCISSORS_CURSOR = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="%23b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>') 2 2, crosshair`;
@@ -41,6 +65,7 @@ export default function ClipTimeline({
   backgroundBuffer = null,
   backgroundName = "",
   backgroundVolume = 0.35,
+  onBackgroundVolumeChange = () => {},
   voiceOffsetSeconds = DEFAULT_VOICE_OFFSET_SECONDS,
   onVoiceOffsetChange = () => {},
 }) {
@@ -51,6 +76,8 @@ export default function ClipTimeline({
   const [dragId, setDragId] = useState(null);
   const [isDraggingOffset, setIsDraggingOffset] = useState(false);
   const [gainDraft, setGainDraft] = useState(null); // { id, gain } — 드래그 중 미리보기 값
+  const [bgVolumeDraft, setBgVolumeDraft] = useState(null); // 드래그 중 미리보기 값 (0~1)
+  const [zoomLevel, setZoomLevel] = useState(ZOOM_MIN); // 100~300(%) — 세로 확대 배율
   const railRef = useRef(null);
   const trackRowRef = useRef(null);
   const sourceRef = useRef(null);
@@ -59,6 +86,7 @@ export default function ClipTimeline({
   const firstRenderRef = useRef(true);
   const offsetDragStateRef = useRef(null);
   const gainDragStateRef = useRef(null);
+  const bgVolumeDragStateRef = useRef(null);
 
   const totalSeconds = segments.reduce((sum, s) => sum + (s.duration || 0), 0);
   const hasGap = segments.some((s) => s.type === "gap");
@@ -191,8 +219,30 @@ export default function ClipTimeline({
         window.removeEventListener("mousemove", handleGainDragMove);
         window.removeEventListener("mouseup", handleGainDragEnd);
       }
+      if (bgVolumeDragStateRef.current) {
+        window.removeEventListener("mousemove", handleBgVolumeDragMove);
+        window.removeEventListener("mouseup", handleBgVolumeDragEnd);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 돋보기 +/- 키로도 확대/축소할 수 있게 합니다(입력창에 포커스가 있을 때는
+  // 무시). "+"는 Shift 없이 눌리는 키보드도 있어서 "=" 키도 함께 받습니다.
+  useEffect(() => {
+    function handleKeyDown(e) {
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) return;
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        setZoomLevel((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP));
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        setZoomLevel((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP));
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   // 스페이스바로 재생/정지 (핸드폰 등 터치 기기는 제외 — 가상 키보드가 없어
@@ -237,16 +287,23 @@ export default function ClipTimeline({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
+  // idx번째 구간이 시작되는 절대 시간(초) — 배경음악 인트로가 있으면 그만큼
+  // 뒤에서 시작합니다. seekToSegment와 자르기의 마그네틱 스냅이 함께 씁니다.
+  function cumulativeSecondsBefore(idx) {
+    let cumulative = hasBackground ? voiceOffsetSeconds : 0;
+    for (let i = 0; i < idx; i++) {
+      cumulative += segments[i].duration || 0;
+    }
+    return cumulative;
+  }
+
   // 클립을 클릭한 위치에 맞춰 재생 헤드(세로선)를 옮깁니다 — 재생 중이면
   // 그 위치부터 이어서 들리도록 실제로 탐색(seek)도 함께 합니다.
   function seekToSegment(e, seg, idx) {
     if (seg.type !== "clip" || timelineSeconds <= 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const fractionWithinSeg = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    let cumulative = hasBackground ? voiceOffsetSeconds : 0;
-    for (let i = 0; i < idx; i++) {
-      cumulative += segments[i].duration || 0;
-    }
+    const cumulative = cumulativeSecondsBefore(idx);
     const absoluteSeconds = cumulative + (seg.duration || 0) * fractionWithinSeg;
     const percent = Math.max(0, Math.min(100, (absoluteSeconds / timelineSeconds) * 100));
     setPlayheadPercent(percent);
@@ -272,7 +329,24 @@ export default function ClipTimeline({
   function handleSegmentClick(e, seg, idx) {
     if (cutMode && seg.type === "clip") {
       const rect = e.currentTarget.getBoundingClientRect();
-      const fraction = (e.clientX - rect.left) / rect.width;
+      let fraction = (e.clientX - rect.left) / rect.width;
+
+      // 마그네틱 스냅 — 지금 재생 헤드(붉은 세로선)가 이 구간 안에 있고,
+      // 클릭한 지점이 그 위치에서 몇 픽셀 이내라면, 클릭한 정확한 픽셀
+      // 대신 재생 헤드의 정확한 위치로 달라붙듯 자릅니다. 재생하다 원하는
+      // 지점에서 멈춘 뒤 그 근처를 대충 클릭해도 정확히 그 지점에서 잘려요.
+      const segStart = cumulativeSecondsBefore(idx);
+      const segDuration = seg.duration || 0;
+      const playheadSeconds = (playheadPercent / 100) * displayTotalSeconds;
+      if (segDuration > 0 && playheadSeconds >= segStart && playheadSeconds <= segStart + segDuration) {
+        const playheadFraction = (playheadSeconds - segStart) / segDuration;
+        const playheadX = playheadFraction * rect.width;
+        const clickX = e.clientX - rect.left;
+        if (Math.abs(clickX - playheadX) <= CUT_SNAP_PIXELS) {
+          fraction = playheadFraction;
+        }
+      }
+
       if (fraction < 0.04 || fraction > 0.96) return; // avoid sliver splits at edges
       splitSegment(seg.id, fraction);
       setCutMode(false);
@@ -429,6 +503,46 @@ export default function ClipTimeline({
     setGainDraft(null);
   }
 
+  // 배경음악 트랙 중앙의 수직선을 드래그해서 배경음악 전체 볼륨을 조절합니다
+  // — 목소리 클립의 볼륨 슬라이더와 똑같은 방식(위로 올리면 커지고, 아래로
+  // 내리면 작아짐)이라 같은 타임라인 안에서 일관된 조작감을 줍니다. 드래그
+  // 중에는 화면에만 미리 보여주고(bgVolumeDraft), 손을 뗄 때 한 번만
+  // onBackgroundVolumeChange로 실제 값을 올립니다.
+  function handleBgVolumeDragStart(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const initialVolume = Math.max(0, Math.min(1, backgroundVolume));
+    bgVolumeDragStateRef.current = {
+      rectTop: rect.top,
+      rectHeight: rect.height || 1,
+      currentVolume: initialVolume,
+    };
+    setBgVolumeDraft(initialVolume);
+    window.addEventListener("mousemove", handleBgVolumeDragMove);
+    window.addEventListener("mouseup", handleBgVolumeDragEnd);
+  }
+
+  function handleBgVolumeDragMove(e) {
+    const state = bgVolumeDragStateRef.current;
+    if (!state) return;
+    const fraction = 1 - Math.max(0, Math.min(1, (e.clientY - state.rectTop) / state.rectHeight));
+    const volume = Math.max(0, Math.min(1, Math.round(fraction * 100) / 100));
+    state.currentVolume = volume;
+    setBgVolumeDraft(volume);
+  }
+
+  function handleBgVolumeDragEnd() {
+    const state = bgVolumeDragStateRef.current;
+    bgVolumeDragStateRef.current = null;
+    window.removeEventListener("mousemove", handleBgVolumeDragMove);
+    window.removeEventListener("mouseup", handleBgVolumeDragEnd);
+    if (state) {
+      onBackgroundVolumeChange(state.currentVolume);
+    }
+    setBgVolumeDraft(null);
+  }
+
   const elapsedSeconds = (playheadPercent / 100) * displayTotalSeconds;
   const introWidthPercent =
     hasBackground && timelineSeconds > 0 ? (voiceOffsetSeconds / timelineSeconds) * 100 : 0;
@@ -476,10 +590,36 @@ export default function ClipTimeline({
           type="button"
           onClick={autoJoinAll}
           disabled={!hasGap}
-          className="ml-auto flex items-center gap-1.5 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex items-center gap-1.5 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Magnet size={13} /> 자동으로 붙이기
         </button>
+
+        {/* 파형 세로 확대 — 시간(가로 폭)은 그대로 두고 파형의 높이만 키워서
+            컷 지점을 더 세밀하게 볼 수 있게 합니다. 키보드 +/- 로도 조절돼요. */}
+        <div className="ml-auto flex items-center gap-1 rounded-full border border-stone-300 px-1 py-1">
+          <button
+            type="button"
+            onClick={() => setZoomLevel((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP))}
+            disabled={zoomLevel <= ZOOM_MIN}
+            className="flex h-6 w-6 items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30"
+            aria-label="파형 축소"
+            title="파형 축소 (키보드 -)"
+          >
+            <ZoomOut size={13} />
+          </button>
+          <span className="w-9 text-center text-[11px] tabular-nums text-stone-400">{zoomLevel}%</span>
+          <button
+            type="button"
+            onClick={() => setZoomLevel((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP))}
+            disabled={zoomLevel >= ZOOM_MAX}
+            className="flex h-6 w-6 items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30"
+            aria-label="파형 확대"
+            title="파형 확대 (키보드 +)"
+          >
+            <ZoomIn size={13} />
+          </button>
+        </div>
       </div>
 
       {/* seek rail */}
@@ -501,7 +641,11 @@ export default function ClipTimeline({
       {/* 목소리 트랙 + (있다면) 배경음악 트랙을 같은 시간축에 정렬해서 보여주는 영역.
           두 트랙 위로 재생 위치를 나타내는 세로선이 함께 지나갑니다. */}
       <div className="relative mt-2">
-      <div ref={trackRowRef} className="flex h-32 gap-0.5 overflow-hidden rounded-lg">
+      <div
+        ref={trackRowRef}
+        style={{ height: `${(BASE_TRACK_HEIGHT_PX * zoomLevel) / 100}px` }}
+        className="flex gap-0.5 overflow-hidden rounded-lg"
+      >
         {hasBackground && (
           <div
             style={{ width: `${introWidthPercent}%` }}
@@ -627,20 +771,40 @@ export default function ClipTimeline({
       </div>
 
       {/* 배경음악 트랙 — 목소리 트랙과 같은 가로 폭(=같은 시간축)에 정렬됩니다.
-          배경음악은 맨 앞부터 바로 나오므로 인트로 구간 없이 처음부터 채워집니다. */}
-      {backgroundWaveform && backgroundWaveform.length > 0 && (
-        <div className="mt-1 rounded-lg bg-sky-50 p-1.5">
-          <p className="mb-1 flex items-center gap-1 text-[10px] font-medium text-sky-600">
-            <Music size={10} /> 배경음악{backgroundName ? `: ${backgroundName}` : ""} · 목소리는{" "}
-            {voiceOffsetSeconds.toFixed(1)}초 후 시작
-          </p>
-          <div className="flex h-10 items-end gap-[1px] overflow-hidden">
-            {backgroundWaveform.map((v, i) => (
-              <span key={i} className="w-full rounded-sm bg-sky-300" style={{ height: `${v}%` }} />
-            ))}
+          배경음악은 맨 앞부터 바로 나오므로 인트로 구간 없이 처음부터 채워집니다.
+          중앙의 수직선을 드래그하면 배경음악 전체 볼륨이 조절됩니다(이게 유일한
+          배경음악 볼륨 조절 방법이에요 — 목소리 클립 볼륨과 같은 방식입니다). */}
+      {backgroundWaveform && backgroundWaveform.length > 0 && (() => {
+        const effectiveBgVolume = bgVolumeDraft ?? Math.max(0, Math.min(1, backgroundVolume));
+        const bgVolumeHandleTopPercent = (1 - effectiveBgVolume) * 100;
+        return (
+          <div className="mt-1 rounded-lg bg-sky-50 p-1.5">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-medium text-sky-600">
+              <Music size={10} /> 배경음악{backgroundName ? `: ${backgroundName}` : ""} · 목소리는{" "}
+              {voiceOffsetSeconds.toFixed(1)}초 후 시작 · 볼륨 {Math.round(effectiveBgVolume * 100)}%
+            </p>
+            <div className="relative flex h-16 items-end gap-[1px] overflow-hidden">
+              {backgroundWaveform.map((v, i) => (
+                <span key={i} className="w-full rounded-sm bg-sky-300" style={{ height: `${v}%` }} />
+              ))}
+              <div
+                onMouseDown={handleBgVolumeDragStart}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute inset-y-0 left-1/2 z-10 flex w-6 -translate-x-1/2 cursor-ns-resize items-start justify-center"
+                title={`배경음악 볼륨 ${Math.round(effectiveBgVolume * 100)}% (드래그해서 조절)`}
+              >
+                <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-sky-500/60" />
+                <div
+                  className="pointer-events-none absolute left-1/2 flex h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-sky-600 shadow"
+                  style={{ top: `${bgVolumeHandleTopPercent}%` }}
+                >
+                  <GripHorizontal size={8} className="text-white" />
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 목소리 + 배경음악 트랙을 함께 관통하는 재생 위치 세로선 */}
       {timelineSeconds > 0 && (
