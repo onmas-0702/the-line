@@ -89,6 +89,7 @@ export default function ClipTimeline({
   const [snapActive, setSnapActive] = useState(false); // 자르기 모드에서 재생 헤드에 자석처럼 붙었는지
   const railRef = useRef(null);
   const trackRowRef = useRef(null);
+  const zoomWrapperRef = useRef(null);
   const sourceRef = useRef(null);
   const startedAtRef = useRef(0);
   const rafRef = useRef(null);
@@ -597,6 +598,44 @@ export default function ClipTimeline({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backgroundVolume]);
 
+  // 파형 확대(줌) 배율이 바뀌면(버튼/키보드) 지금 재생 헤드가 있던 위치를
+  // 기준으로 화면 가운데가 다시 맞춰지도록 가로 스크롤을 조정합니다. 이걸
+  // 안 하면 확대할 때마다 스크롤 위치(픽셀)는 그대로인데 안쪽 내용만
+  // 넓어져서, 화면에는 전혀 엉뚱한(대개 맨 앞) 구간이 보이게 됩니다 —
+  // "확대는 됐는데 실제 보고/클릭하는 위치가 의도한 곳이 아니다"라고
+  // 느껴졌던 원인입니다.
+  useEffect(() => {
+    const wrapper = zoomWrapperRef.current;
+    if (!wrapper) return;
+    const scrollWidth = wrapper.scrollWidth;
+    const clientWidth = wrapper.clientWidth;
+    if (scrollWidth <= clientWidth) return;
+    const playheadPx = (playheadPercent / 100) * scrollWidth;
+    wrapper.scrollLeft = Math.max(0, Math.min(scrollWidth - clientWidth, playheadPx - clientWidth / 2));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomLevel]);
+
+  // 재생 중이거나 클릭으로 다른 위치를 탐색(seek)해서 재생 헤드가
+  // 움직였을 때, 확대된 상태에서 그 위치가 화면 가장자리에 가까워지면
+  // 스크롤이 자동으로 따라가게 합니다. 확대할수록 같은 시간 이동이 더 많은
+  // 픽셀 이동으로 보여야 정상인데(=배율에 비례해서 재생 헤드가 더 빠르게
+  // 움직이는 것처럼 보임), 스크롤이 따라가지 않으면 금방 화면 밖으로 사라져
+  // 버려서 위쪽 전체 탐색바(seek rail)와 "따로 노는" 것처럼 느껴졌습니다.
+  useEffect(() => {
+    const wrapper = zoomWrapperRef.current;
+    if (!wrapper) return;
+    const scrollWidth = wrapper.scrollWidth;
+    const clientWidth = wrapper.clientWidth;
+    if (scrollWidth <= clientWidth) return;
+    const playheadPx = (playheadPercent / 100) * scrollWidth;
+    const viewStart = wrapper.scrollLeft;
+    const viewEnd = viewStart + clientWidth;
+    const margin = clientWidth * 0.15;
+    if (playheadPx < viewStart + margin || playheadPx > viewEnd - margin) {
+      wrapper.scrollLeft = Math.max(0, Math.min(scrollWidth - clientWidth, playheadPx - clientWidth / 2));
+    }
+  }, [playheadPercent]);
+
   const elapsedSeconds = (playheadPercent / 100) * displayTotalSeconds;
   const introWidthPercent =
     hasBackground && timelineSeconds > 0 ? (voiceOffsetSeconds / timelineSeconds) * 100 : 0;
@@ -700,7 +739,7 @@ export default function ClipTimeline({
           두 트랙 위로 재생 위치를 나타내는 세로선이 함께 지나갑니다. 확대(zoomLevel)
           하면 안쪽 내용의 "폭"이 넓어지고, 바깥쪽은 overflow-x-auto라서 넓어진 만큼
           좌우로 스크롤됩니다 — 오디오 길이 자체나 세로 높이는 바뀌지 않습니다. */}
-      <div className="relative mt-2 overflow-x-auto">
+      <div ref={zoomWrapperRef} className="relative mt-2 overflow-x-auto">
       <div className="relative" style={{ width: `${zoomLevel}%` }}>
       <div
         ref={trackRowRef}
