@@ -55,6 +55,7 @@ export default function RecordPage() {
   const [inputDevices, setInputDevices] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [micError, setMicError] = useState("");
+  const [isPreparingMic, setIsPreparingMic] = useState(false);
   const [segments, setSegments] = useState([]);
 
   const [selectedTrack, setSelectedTrack] = useState("bg1");
@@ -89,6 +90,7 @@ export default function RecordPage() {
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const recordTimerRef = useRef(null);
+  const micPrepTimeoutRef = useRef(null);
   const previewSourceRef = useRef(null);
   const previewBufferRef = useRef(null);
   const previewStartedAtRef = useRef(0);
@@ -154,6 +156,7 @@ export default function RecordPage() {
   useEffect(() => {
     return () => {
       clearInterval(recordTimerRef.current);
+      if (micPrepTimeoutRef.current) clearTimeout(micPrepTimeoutRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
@@ -184,6 +187,14 @@ export default function RecordPage() {
     }
   }
 
+  // 마이크를 새로 열 때 브라우저/운영체제가 입력 레벨을 스스로 다시 맞추는
+  // 짧은 "적응 시간"이 있어서, autoGainControl을 꺼도 초반 1초 남짓은 소리가
+  // 커졌다 작아지는 현상이 완전히 사라지지 않는 경우가 있습니다. 그래서
+  // 스트림을 연 뒤 이 시간만큼 조용히 기다렸다가(화면엔 "마이크 준비 중"으로
+  // 표시) 그 적응이 끝난 다음에야 실제 녹음을 시작합니다 — 이 대기 구간은
+  // 녹음되지 않으므로 사용자가 듣는 결과물에는 그 흔들림이 남지 않습니다.
+  const MIC_WARMUP_MS = 900;
+
   async function startRecording() {
     setMicError("");
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -206,42 +217,72 @@ export default function RecordPage() {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
 
-      const mimeType = pickMimeType();
-      const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      chunksRef.current = [];
-      mr.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      mr.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: mr.mimeType || mimeType || "audio/webm" });
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-        await addClipFromBlob(blob, "recorded", `녹음 클립 ${segments.filter((s) => s.type === "clip").length + 1}`);
-      };
-      mediaRecorderRef.current = mr;
-      mr.start();
-      setIsRecording(true);
-      setRecordSeconds(0);
-      recordTimerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
+      // 일부 브라우저는 getUserMedia에 넘긴 제약을 트랙에 완전히 반영하지
+      // 않는 경우가 있어서, 스트림을 얻은 직후 트랙에도 한 번 더 명시적으로
+      // 적용합니다(지원하지 않는 브라우저에서는 조용히 무시됩니다).
+      const [audioTrack] = stream.getAudioTracks();
+      try {
+        await audioTrack?.applyConstraints({ autoGainControl: false });
+      } catch (e) {
+        // 일부 기기/브라우저는 이 재적용을 지원하지 않을 수 있어요 — 무시하고 진행합니다.
+      }
 
       // Device labels are only visible after permission is granted —
       // refresh the list now that we have it.
       navigator.mediaDevices.enumerateDevices().then((devices) => {
         setInputDevices(devices.filter((d) => d.kind === "audioinput"));
       });
+
+      setIsPreparingMic(true);
+      micPrepTimeoutRef.current = setTimeout(() => {
+        micPrepTimeoutRef.current = null;
+        // 대기하는 동안 사용자가 취소했다면(스트림이 이미 정리됐다면) 시작하지 않습니다.
+        if (!streamRef.current) return;
+        setIsPreparingMic(false);
+
+        const mimeType = pickMimeType();
+        const mr = mimeType
+          ? new MediaRecorder(streamRef.current, { mimeType })
+          : new MediaRecorder(streamRef.current);
+        chunksRef.current = [];
+        mr.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+        };
+        mr.onstop = async () => {
+          const blob = new Blob(chunksRef.current, { type: mr.mimeType || mimeType || "audio/webm" });
+          streamRef.current?.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+          await addClipFromBlob(blob, "recorded", `녹음 클립 ${segments.filter((s) => s.type === "clip").length + 1}`);
+        };
+        mediaRecorderRef.current = mr;
+        mr.start();
+        setIsRecording(true);
+        setRecordSeconds(0);
+        recordTimerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
+      }, MIC_WARMUP_MS);
     } catch (err) {
       setMicError("마이크에 접근할 수 없습니다. 브라우저의 마이크 권한을 확인해주세요.");
     }
   }
 
   function stopRecording() {
+    // 아직 "마이크 준비 중" 단계라면(적응 대기 중 취소) 녹음을 시작하지도 않고
+    // 조용히 정리합니다.
+    if (micPrepTimeoutRef.current) {
+      clearTimeout(micPrepTimeoutRef.current);
+      micPrepTimeoutRef.current = null;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      setIsPreparingMic(false);
+      return;
+    }
     clearInterval(recordTimerRef.current);
     setIsRecording(false);
     mediaRecorderRef.current?.stop();
   }
 
   function toggleRecording() {
-    if (isRecording) {
+    if (isRecording || isPreparingMic) {
       stopRecording();
     } else {
       startRecording();
@@ -593,7 +634,7 @@ export default function RecordPage() {
               <select
                 value={selectedDeviceId}
                 onChange={(e) => setSelectedDeviceId(e.target.value)}
-                disabled={isRecording}
+                disabled={isRecording || isPreparingMic}
                 className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 disabled:opacity-60"
               >
                 {inputDevices.length === 0 && <option value="">기본 마이크</option>}
@@ -618,15 +659,21 @@ export default function RecordPage() {
                   type="button"
                   onClick={toggleRecording}
                   className={`flex h-16 w-16 items-center justify-center rounded-full text-white shadow-sm transition ${
-                    isRecording ? "bg-red-600 animate-pulse" : "bg-amber-700 hover:bg-amber-800"
+                    isRecording
+                      ? "bg-red-600 animate-pulse"
+                      : isPreparingMic
+                      ? "bg-stone-400"
+                      : "bg-amber-700 hover:bg-amber-800"
                   }`}
-                  aria-label={isRecording ? "녹음 중지" : "녹음 시작"}
+                  aria-label={isRecording ? "녹음 중지" : isPreparingMic ? "마이크 준비 취소" : "녹음 시작"}
                 >
-                  {isRecording ? "■" : "●"}
+                  {isRecording ? "■" : isPreparingMic ? "…" : "●"}
                 </button>
                 <p className="text-sm text-stone-600">
                   {isRecording
                     ? `녹음 중… (${formatDuration(recordSeconds)})`
+                    : isPreparingMic
+                    ? "마이크 준비 중… (입력 레벨이 안정되는 중이에요)"
                     : "버튼을 눌러 녹음을 시작하세요"}
                 </p>
               </div>
@@ -707,9 +754,9 @@ export default function RecordPage() {
           {selectedBackgroundTrack ? (
             <p className="mt-2 text-xs text-emerald-600">
               &quot;{selectedBackgroundTrack.name}&quot;이(가) 먼저 나오고, {voiceOffsetSeconds.toFixed(1)}초 후
-              목소리가 이어서 시작돼요. 끝부분은 자동으로 페이드아웃돼요(약 {BG_FADE_OUT_SECONDS}초).
-              (편집 타임라인의 하늘색 인트로 구간을 드래그하면 길이를 바꿀 수 있어요 · 더킹 효과는
-              다음 단계로 남아있어요.)
+              목소리가 이어서 시작돼요. 메시지가 끝나면 배경음악만 약 {BG_FADE_OUT_SECONDS}초 더 이어지며
+              서서히 페이드아웃돼요. (편집 타임라인의 하늘색 인트로 구간을 드래그하면 길이를 바꿀 수 있어요 ·
+              더킹 효과는 다음 단계로 남아있어요.)
             </p>
           ) : (
             <p className="mt-2 text-xs text-stone-400">

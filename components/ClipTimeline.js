@@ -149,6 +149,17 @@ export default function ClipTimeline({
     playFrom(offsetSeconds);
   }
 
+  // 아래 스페이스바 keydown 리스너는 마운트 시 한 번만 등록되기 때문에, 그
+  // 안에서 그냥 togglePlay를 직접 부르면 "마운트 당시의" isPlaying/
+  // previewBuffer(대개 아직 녹음 전이라 null)만 계속 참조하는 stale closure
+  // 버그가 생깁니다 — 그래서 실제로는 재생이 전혀 안 되는 것처럼 보였던
+  // 원인이었어요. 매 렌더마다 최신 togglePlay를 ref에 담아두고, 리스너는
+  // 그 ref를 통해서만 호출하도록 고쳤습니다.
+  const togglePlayRef = useRef(togglePlay);
+  useEffect(() => {
+    togglePlayRef.current = togglePlay;
+  });
+
   // 녹음/업로드 직후 마음에 들지 않는 클립을 곧바로 완전히 삭제합니다.
   // (편집 중 자르기로 생긴 구간을 지우는 것과 달리, 빈 공간을 남기지 않고
   // 바로 사라지면서 뒤 클립이 앞으로 당겨집니다.)
@@ -204,11 +215,10 @@ export default function ClipTimeline({
       if (tag === "BUTTON" && active instanceof HTMLElement) {
         active.blur();
       }
-      togglePlay();
+      togglePlayRef.current();
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Delete / Backspace 키로도 선택된 구간을 지울 수 있게 합니다(맥 키보드의
