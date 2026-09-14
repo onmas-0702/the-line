@@ -7,6 +7,7 @@ import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
 import DesignSkinPanel from "@/components/DesignSkinPanel";
 import ManageContentPanel from "@/components/ManageContentPanel";
 import {
+  BG_DUCK_LEAD_SECONDS,
   BG_FADE_OUT_SECONDS,
   DEFAULT_VOICE_OFFSET_SECONDS,
   audioBufferToWavBlob,
@@ -57,7 +58,10 @@ export default function RecordPage() {
   const [segments, setSegments] = useState([]);
 
   const [selectedTrack, setSelectedTrack] = useState("bg1");
-  const [musicVolume, setMusicVolume] = useState(35);
+  // 배경음악 볼륨 — 나레이션 클립의 볼륨 게인과 완전히 같은 척도입니다
+  // (0~2, 기본값 1 = 원본 그대로/중앙). 편집 타임라인 안의 배경음악 트랙
+  // 세로선을 드래그해서 조절해요.
+  const [musicVolume, setMusicVolume] = useState(1);
   // 배경음악이 먼저 나오고 목소리가 이어서 시작하기까지의 인트로 길이(초).
   // 편집 타임라인의 하늘색 구간을 드래그하면 이 값이 바뀝니다.
   const [voiceOffsetSeconds, setVoiceOffsetSeconds] = useState(DEFAULT_VOICE_OFFSET_SECONDS);
@@ -340,7 +344,7 @@ export default function RecordPage() {
           ? bgTrackBuffer
           : await decodeUrlToBuffer(selectedBackgroundTrack.audioUrl);
       setBgMixError("");
-      return mixVoiceWithBackground(voiceBuffer, bgBuffer, musicVolume / 100, voiceOffsetSeconds);
+      return mixVoiceWithBackground(voiceBuffer, bgBuffer, musicVolume, voiceOffsetSeconds);
     } catch (e) {
       setBgMixError("배경음악을 불러오지 못해 이번엔 목소리만 재생/저장했어요.");
       return voiceBuffer;
@@ -596,8 +600,8 @@ export default function RecordPage() {
             onChange={updateSegments}
             backgroundBuffer={bgTrackBuffer}
             backgroundName={selectedBackgroundTrack?.name}
-            backgroundVolume={musicVolume / 100}
-            onBackgroundVolumeChange={(v) => setMusicVolume(Math.round(v * 100))}
+            backgroundVolume={musicVolume}
+            onBackgroundVolumeChange={setMusicVolume}
             voiceOffsetSeconds={voiceOffsetSeconds}
             onVoiceOffsetChange={setVoiceOffsetSeconds}
           />
@@ -617,7 +621,7 @@ export default function RecordPage() {
           <BackgroundMusicPicker
             selectedTrackId={selectedTrack}
             onSelect={setSelectedTrack}
-            volume={musicVolume / 100}
+            volume={Math.min(1, musicVolume)}
           />
         </div>
 
@@ -629,10 +633,10 @@ export default function RecordPage() {
           {selectedBackgroundTrack ? (
             <p className="mt-2 text-xs text-emerald-600">
               &quot;{selectedBackgroundTrack.name}&quot;이(가) 먼저 나오고, {voiceOffsetSeconds.toFixed(1)}초 후
-              목소리가 이어서 시작돼요. 목소리가 나오기 직전부터는 배경음악이 자동으로 작아지고(더킹),
-              목소리가 나오는 동안 계속 낮게 유지돼요. 메시지가 끝나면 배경음악만 약 {BG_FADE_OUT_SECONDS}
-              초 더 이어지며 서서히 페이드아웃돼요. (편집 타임라인의 하늘색 인트로 구간을 드래그하면
-              길이를 바꿀 수 있어요.)
+              목소리가 이어서 시작돼요. 목소리가 나오기 {BG_DUCK_LEAD_SECONDS}초 전부터 배경음악이
+              자동으로 작아지고(더킹, 설정 볼륨의 35% 수준), 목소리가 나오는 동안 계속 낮게 유지돼요.
+              메시지가 끝나면 배경음악만 약 {BG_FADE_OUT_SECONDS}초 더 이어지며 서서히 페이드아웃돼요.
+              (편집 타임라인의 하늘색 인트로 구간을 드래그하면 길이를 바꿀 수 있어요.)
             </p>
           ) : (
             <p className="mt-2 text-xs text-stone-400">
