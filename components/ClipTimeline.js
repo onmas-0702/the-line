@@ -63,6 +63,14 @@ function zoomOut(level) {
 // 위치선)에서 이 픽셀 이내면, 마치 자석처럼 그 정확한 위치로 달라붙습니다.
 const CUT_SNAP_PIXELS = 14;
 
+// 클립의 맨 앞/뒤 끝에서 이 시간(초) 이내로는 자르지 않습니다(너무 얇은
+// 조각이 생기는 걸 막기 위한 최소한의 여유). 예전에는 이걸 클립 길이의
+// 4%로 계산했는데, 클립이 몇 분씩 길어지면 가장자리 4%가 수십 초에 달해서
+// — 특히 재생 헤드가 클립 끝부분 근처일 때 — 자석 스냅이 빨갛게 표시돼도
+// 정작 클릭하면 조용히 잘리지 않는 버그가 있었습니다. 절대 시간 기준으로
+// 아주 짧게(프레임 단위) 잡아서 이 문제를 없앴습니다.
+const MIN_SPLIT_SECONDS = 0.05;
+
 // 자르기 모드에서 클립 위에 마우스를 올렸을 때 보여줄 가위 모양 커서.
 // 실제 이미지 파일 없이 SVG를 데이터 URI로 인라인해서 씁니다.
 const SCISSORS_CURSOR = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="%23b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>') 2 2, crosshair`;
@@ -144,12 +152,39 @@ export default function ClipTimeline({
     cancelAnimationFrame(rafRef.current);
   }
 
+  // 확대된 타임라인 안에서 재생 헤드가 화면 가장자리에 가까워지면 스크롤이
+  // 따라가게 합니다. 이걸 React useEffect(의존성: playheadPercent)로 만들면
+  // 재생 중 1초에 60번씩 상태가 바뀔 때마다 매번 별도의 effect 커밋을
+  // 거치게 되는데, 그 과정에서 실제로는 헤더가 멈춘 것처럼 보이다가
+  // 정지했을 때 한꺼번에 따라잡는 문제가 있었습니다. 그래서 effect로
+  // 반응하는 대신, 재생 애니메이션 루프(tick)와 각 seek 지점에서 이
+  // 함수를 직접 호출하는 방식으로 바꿨습니다.
+  function scrollPlayheadIntoView(pct, { force = false } = {}) {
+    const wrapper = zoomWrapperRef.current;
+    if (!wrapper) return;
+    const scrollWidth = wrapper.scrollWidth;
+    const clientWidth = wrapper.clientWidth;
+    if (scrollWidth <= clientWidth) return;
+    const playheadPx = (pct / 100) * scrollWidth;
+    if (force) {
+      wrapper.scrollLeft = Math.max(0, Math.min(scrollWidth - clientWidth, playheadPx - clientWidth / 2));
+      return;
+    }
+    const viewStart = wrapper.scrollLeft;
+    const viewEnd = viewStart + clientWidth;
+    const margin = clientWidth * 0.15;
+    if (playheadPx < viewStart + margin || playheadPx > viewEnd - margin) {
+      wrapper.scrollLeft = Math.max(0, Math.min(scrollWidth - clientWidth, playheadPx - clientWidth / 2));
+    }
+  }
+
   function tick() {
     const ctx = getAudioContext();
     if (!sourceRef.current || !previewBuffer) return;
     const elapsed = ctx.currentTime - startedAtRef.current;
     const pct = Math.min(100, (elapsed / previewBuffer.duration) * 100);
     setPlayheadPercent(pct);
+    scrollPlayheadIntoView(pct);
     if (pct >= 100) {
       stopPlayback();
       setIsPlaying(false);
@@ -351,6 +386,7 @@ export default function ClipTimeline({
     const absoluteSeconds = cumulative + (seg.duration || 0) * fractionWithinSeg;
     const percent = Math.max(0, Math.min(100, (absoluteSeconds / timelineSeconds) * 100));
     setPlayheadPercent(percent);
+    scrollPlayheadIntoView(percent, { force: true });
     if (isPlaying) {
       playFrom((percent / 100) * (previewBuffer?.duration || 0));
     }
@@ -360,7 +396,9 @@ export default function ClipTimeline({
     if (!railRef.current || !previewBuffer) return;
     const rect = railRef.current.getBoundingClientRect();
     const fraction = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    setPlayheadPercent(fraction * 100);
+    const percent = fraction * 100;
+    setPlayheadPercent(percent);
+    scrollPlayheadIntoView(percent, { force: true });
     if (isPlaying) {
       playFrom(fraction * previewBuffer.duration);
     }
@@ -381,7 +419,11 @@ export default function ClipTimeline({
       const snapped = computeSnapFraction(e, rect, seg, idx);
       if (snapped !== null) fraction = snapped;
 
-      if (fraction < 0.04 || fraction > 0.96) return; // avoid sliver splits at edges
+      // 아주 얇은 조각이 생기는 것만 막습니다(절대 시간 기준) — 자석
+      // 스냅으로 빨갛게 표시된 지점은 클립 길이와 무관하게 거의 항상
+      // 잘릴 수 있어야 합니다.
+      const minFraction = seg.duration > 0 ? Math.min(0.45, MIN_SPLIT_SECONDS / seg.duration) : 0.04;
+      if (fraction < minFraction || fraction > 1 - minFraction) return;
       splitSegment(seg.id, fraction);
       setCutMode(false);
       setSnapActive(false);
@@ -605,36 +647,9 @@ export default function ClipTimeline({
   // "확대는 됐는데 실제 보고/클릭하는 위치가 의도한 곳이 아니다"라고
   // 느껴졌던 원인입니다.
   useEffect(() => {
-    const wrapper = zoomWrapperRef.current;
-    if (!wrapper) return;
-    const scrollWidth = wrapper.scrollWidth;
-    const clientWidth = wrapper.clientWidth;
-    if (scrollWidth <= clientWidth) return;
-    const playheadPx = (playheadPercent / 100) * scrollWidth;
-    wrapper.scrollLeft = Math.max(0, Math.min(scrollWidth - clientWidth, playheadPx - clientWidth / 2));
+    scrollPlayheadIntoView(playheadPercent, { force: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoomLevel]);
-
-  // 재생 중이거나 클릭으로 다른 위치를 탐색(seek)해서 재생 헤드가
-  // 움직였을 때, 확대된 상태에서 그 위치가 화면 가장자리에 가까워지면
-  // 스크롤이 자동으로 따라가게 합니다. 확대할수록 같은 시간 이동이 더 많은
-  // 픽셀 이동으로 보여야 정상인데(=배율에 비례해서 재생 헤드가 더 빠르게
-  // 움직이는 것처럼 보임), 스크롤이 따라가지 않으면 금방 화면 밖으로 사라져
-  // 버려서 위쪽 전체 탐색바(seek rail)와 "따로 노는" 것처럼 느껴졌습니다.
-  useEffect(() => {
-    const wrapper = zoomWrapperRef.current;
-    if (!wrapper) return;
-    const scrollWidth = wrapper.scrollWidth;
-    const clientWidth = wrapper.clientWidth;
-    if (scrollWidth <= clientWidth) return;
-    const playheadPx = (playheadPercent / 100) * scrollWidth;
-    const viewStart = wrapper.scrollLeft;
-    const viewEnd = viewStart + clientWidth;
-    const margin = clientWidth * 0.15;
-    if (playheadPx < viewStart + margin || playheadPx > viewEnd - margin) {
-      wrapper.scrollLeft = Math.max(0, Math.min(scrollWidth - clientWidth, playheadPx - clientWidth / 2));
-    }
-  }, [playheadPercent]);
 
   const elapsedSeconds = (playheadPercent / 100) * displayTotalSeconds;
   const introWidthPercent =
