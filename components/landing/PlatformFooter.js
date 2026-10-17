@@ -1,3 +1,4 @@
+import { InstallGuideLink } from "@/components/InstallBanner";
 import { PLATFORM_INFO, PLATFORM_TITLE } from "@/lib/mockData";
 
 // 랜딩 페이지 맨 아래 제작사 정보·환불정책·연락처. 값은 lib/mockData.js의 PLATFORM_INFO.
@@ -26,6 +27,7 @@ export default function PlatformFooter() {
   return (
     <footer className="mt-6 border-t border-stone-200 bg-stone-100/70 px-4 pb-10 pt-6 text-xs leading-relaxed">
       <p className="text-sm font-semibold text-stone-700">{PLATFORM_TITLE}</p>
+      <InstallGuideLink className="mt-2 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-800" />
 
       <div className="mt-3 space-y-1">
         <InfoLine label="제작사" value={info.companyName} />
