@@ -1,36 +1,11 @@
-import { PLATFORM_NAME } from "@/lib/mockData";
+import { redirect } from "next/navigation";
+import { ChannelSlug } from "@/lib/channel";
 
+// ⚠️ 임시 — 회원가입·로그인(Supabase Auth)을 붙이기 전까지, 사이트의 모든 "로그인" 버튼은
+// 운영자가 바로 기본 채널('은혜의 밤, 더 라인')의 제작/관리 화면으로 들어가는 입구로 씁니다.
+// 로그인 기능을 만들 때 이 파일을 실제 로그인 화면으로 바꾸고, 제작/관리 화면은
+// AccessPolicy.canManageChannel로 막아야 합니다(지금은 주소를 아는 누구나 들어갈 수 있음).
+// 예전 로그인 와이어프레임 화면은 git 기록(커밋 a9f51b9의 이 파일)에 있습니다.
 export default function LoginPage() {
-  return (
-    <div className="mx-auto flex max-w-sm flex-col items-center justify-center py-16 text-center">
-      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-700 text-xl font-semibold text-white">
-        은
-      </span>
-      <h1 className="mt-4 text-xl font-semibold text-stone-900">
-        {PLATFORM_NAME}
-      </h1>
-      <p className="mt-2 text-sm text-stone-500">
-        동료 목회자들과 짧은 은혜의 순간을 나눠보세요.
-      </p>
-
-      <div className="mt-8 w-full space-y-3">
-        <button
-          type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
-        >
-          Google로 계속하기
-        </button>
-        <button
-          type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FEE500] py-2.5 text-sm font-medium text-stone-900 transition hover:brightness-95"
-        >
-          카카오로 계속하기
-        </button>
-      </div>
-
-      <p className="mt-6 text-xs text-stone-400">
-        (와이어프레임 단계 — 실제 로그인은 연결되어 있지 않습니다)
-      </p>
-    </div>
-  );
+  redirect(`/${ChannelSlug.DEFAULT}/record`);
 }

@@ -160,7 +160,7 @@ export default function ChannelHeader({ contentCount }) {
           </button>
         ) : (
           <Link
-            href="/login"
+            href="/signup"
             className="rounded-full bg-stone-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
           >
             구독
