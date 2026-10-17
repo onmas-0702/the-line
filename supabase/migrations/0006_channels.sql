@@ -37,7 +37,7 @@ create table if not exists channels (
       'settings', 'signup', 'studio', 'support', 'terms'
     ])),
   name text not null,                        -- 화면에 보이는 채널 이름(한글 가능)
-  description text,
+  -- 소개글·로고·대표이미지 같은 꾸미기 정보는 site_settings(채널당 한 행)에 둡니다.
   owner_id uuid references auth.users(id),   -- 개설한 유료회원. 운영사 채널(채널 A)·로그인 연동 전은 null
   -- pending: 신청/결제 대기, active: 운영 중, suspended: 결제 실패·정책 위반 등으로 정지
   status text not null default 'pending' check (status in ('pending', 'active', 'suspended')),

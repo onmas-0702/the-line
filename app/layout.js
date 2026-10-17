@@ -1,4 +1,5 @@
 import "./globals.css";
+import ViewerProvider from "@/components/ViewerProvider";
 import { PLATFORM_NAME } from "@/lib/mockData";
 
 // 플랫폼 전체의 뼈대만 둡니다. 채널별 화면(내비게이션·배경 스킨·스토어)은
@@ -11,7 +12,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="ko" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-stone-50 text-stone-800">{children}</body>
+      <body className="min-h-full flex flex-col bg-stone-50 text-stone-800">
+        <ViewerProvider>{children}</ViewerProvider>
+      </body>
     </html>
   );
 }

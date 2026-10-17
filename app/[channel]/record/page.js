@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Mic, Upload, CheckCircle2, AlertCircle, Undo2, Image as ImageIcon, ListChecks } from "lucide-react";
 import ClipTimeline from "@/components/ClipTimeline";
 import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
@@ -20,8 +21,12 @@ export default function RecordPage() {
   const { repos } = useChannel();
 
   // 페이지 최상단 탭: 제작(녹음/편집/저장) / 콘텐츠 관리(업로드한 것 삭제·편집) /
-  // 디자인(전체 배경 스킨).
-  const [mainTab, setMainTab] = useState("content");
+  // 디자인(채널 꾸미기: 대표이미지·로고·기본 배경 이미지).
+  // 채널 페이지의 "채널 꾸미기" 버튼은 ?tab=design으로 디자인 탭을 바로 엽니다.
+  const requestedTab = useSearchParams().get("tab");
+  const [mainTab, setMainTab] = useState(
+    ["content", "manage", "design"].includes(requestedTab) ? requestedTab : "content"
+  );
   const [activeTab, setActiveTab] = useState("record");
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
@@ -329,7 +334,7 @@ export default function RecordPage() {
       <div>
         <h1 className="text-lg font-semibold text-stone-900">제작/관리</h1>
         <p className="mt-1 text-sm text-stone-500">
-          나눔을 녹음·편집·저장하거나, 사이트 전체 디자인(배경 스킨)을 관리하세요.
+          나눔을 녹음·편집·저장하거나, 채널 꾸미기(대표이미지·로고)를 관리하세요.
         </p>
       </div>
 

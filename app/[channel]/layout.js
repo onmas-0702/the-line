@@ -2,7 +2,6 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import ChannelProvider from "@/components/ChannelProvider";
 import NavBar from "@/components/NavBar";
-import SiteBackground from "@/components/SiteBackground";
 import { ChannelResolver } from "@/lib/channel";
 import { PLATFORM_NAME, SITE_NAME } from "@/lib/mockData";
 import { AppStoreProvider } from "@/lib/store";
@@ -34,7 +33,6 @@ export default async function ChannelLayout({ children, params }) {
   return (
     <ChannelProvider channel={channel.toJSON()}>
       <AppStoreProvider key={channel.slug}>
-        <SiteBackground />
         <NavBar />
         <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-24 sm:pb-6">{children}</main>
         <footer className="hidden border-t border-stone-200 py-4 text-center text-xs text-stone-400 sm:block">

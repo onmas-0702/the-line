@@ -1,149 +1,58 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { Pause, Play } from "lucide-react";
-import { TimeFormat } from "@/lib/audio";
-import { useChannel } from "@/components/ChannelProvider";
+// 채널 메인 페이지(/{채널주소}) — 구독자가 보는 채널 화면. 유튜브 채널처럼
+//   대표이미지(배너) → 네모 로고 + 채널 이름·구독자·소개글 → 버튼(관리자: 제작·관리)
+//   → 정렬(최신순·인기순·날짜순)·검색 → 이 채널의 콘텐츠만 → 하단 재생 바.
+// 랜딩 페이지에서 콘텐츠를 눌러 들어오면(?c={콘텐츠 id}) 그 콘텐츠를 재생 바에 띄우고
+// 카드 위치로 스크롤합니다.
+
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import ChannelHeader from "@/components/channel/ChannelHeader";
+import { ContentGrid, ContentToolbar } from "@/components/channel/ChannelContents";
+import { PlayerBar, useChannelPlayer } from "@/components/channel/ChannelPlayer";
+import { ChannelContentQuery } from "@/lib/channelProfile";
 import { useAppStore } from "@/lib/store";
 
-// 홈 화면 — 배경 스킨이 적용되어 있으면 "최신 콘텐츠는 큰 재생 버튼 하나,
-// 나머지는 아래에 담백한 텍스트 목록" 형태의 감성적인 한 장의 화면으로
-// 보여줍니다. 스킨이 없으면(기본 상태) 흰 배경 위에 같은 색상 규칙(호박색)을
-// 쓰는 안전한 기본 모습으로 대체됩니다.
-export default function HomePage() {
-  const { audios, pageSize, skinImageUrl, textColor } = useAppStore();
-  const { channel } = useChannel();
-  const [playingId, setPlayingId] = useState(null);
-  // 재생 중인 항목의 "남은 시간" — 재생과 동시에 전체 길이에서 거꾸로
-  // 줄어들다가 0:00이 되면 끝나는 카운트다운 표시용입니다.
-  const [remainingLabel, setRemainingLabel] = useState("");
-  const audioRef = useRef(null);
+export default function ChannelHomePage() {
+  const { audios, artwork } = useAppStore();
+  const selectedId = useSearchParams().get("c");
+  const [query, setQuery] = useState(() => new ChannelContentQuery());
+  const [dismissedSelection, setDismissedSelection] = useState(false);
+  const player = useChannelPlayer();
 
-  function handleTimeUpdate() {
-    const el = audioRef.current;
-    if (!el || !Number.isFinite(el.duration)) return;
-    const remaining = Math.max(0, el.duration - el.currentTime);
-    setRemainingLabel(TimeFormat.duration(remaining));
-  }
+  const items = useMemo(() => query.apply(audios), [query, audios]);
+  const selected = (selectedId && audios.find((a) => a.id === selectedId)) || null;
+  // 재생 바에는 지금 재생한 콘텐츠, 없으면 랜딩에서 골라 들어온 콘텐츠를 띄웁니다.
+  const barItem = player.current ?? (dismissedSelection ? null : selected);
 
-  const sorted = useMemo(() => {
-    const copy = [...audios];
-    copy.sort((a, b) => (a.date < b.date ? 1 : -1));
-    return copy;
-  }, [audios]);
-
-  const visible = sorted.slice(0, pageSize);
-  const latest = visible[0] || null;
-  const rest = visible.slice(1);
-
-  const isSkinned = Boolean(skinImageUrl);
-  const color = textColor || "#ffffff";
-  const titleStyle = isSkinned ? { color } : undefined;
-  const subStyle = isSkinned ? { color, opacity: 0.75 } : undefined;
-
-  // 재생 중이던 항목을 다시 누르면 정지, 다른 항목을 누르면 그걸로 갈아탑니다 —
-  // 하나의 오디오 엘리먼트를 재사용하는 방식(재생 버튼을 누른 그 순간 바로
-  // play()를 호출해야 브라우저 자동재생 정책에 안전합니다).
-  function togglePlay(item) {
-    const el = audioRef.current;
-    if (!item?.previewUrl || !el) return;
-    if (playingId === item.id) {
-      el.pause();
-      setPlayingId(null);
-      setRemainingLabel("");
-      return;
-    }
-    el.pause();
-    el.src = item.previewUrl;
-    el.currentTime = 0;
-    el.play().catch(() => {});
-    setPlayingId(item.id);
-    setRemainingLabel(item.duration); // 재생 시작 직후 첫 timeupdate 전까지는 전체 길이로 시작
-  }
-
-  if (!latest) {
-    return (
-      <div className="flex min-h-[65vh] flex-col items-center justify-center gap-2 text-center">
-        <h1 className={`text-lg font-semibold ${isSkinned ? "" : "text-stone-900"}`} style={titleStyle}>
-          {channel.name}
-        </h1>
-        <p className={`text-sm ${isSkinned ? "" : "text-stone-400"}`} style={subStyle}>
-          아직 등록된 나눔이 없습니다.
-        </p>
-      </div>
-    );
-  }
+  // 골라 들어온 콘텐츠의 카드가 보이도록 한 번 스크롤합니다.
+  useEffect(() => {
+    if (!selected) return;
+    document.getElementById(`content-${selected.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [selected]);
 
   return (
-    <div className="flex min-h-[75vh] flex-col">
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-10 text-center">
-        <h1
-          className={`max-w-xs text-xl font-semibold leading-snug ${isSkinned ? "" : "text-stone-900"}`}
-          style={titleStyle}
-        >
-          {latest.title}
-        </h1>
-        <button
-          type="button"
-          onClick={() => togglePlay(latest)}
-          disabled={!latest.previewUrl}
-          title={latest.previewUrl ? undefined : "샘플 데이터입니다 (재생 준비중)"}
-          className={`flex h-20 w-20 items-center justify-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-40 ${
-            isSkinned
-              ? "bg-white/20 backdrop-blur-sm hover:bg-white/30"
-              : "bg-amber-700 text-white hover:bg-amber-800"
-          }`}
-          style={isSkinned ? titleStyle : undefined}
-          aria-label={playingId === latest.id ? "정지" : "재생"}
-        >
-          {playingId === latest.id ? <Pause size={30} /> : <Play size={30} className="ml-1" />}
-        </button>
-        <p className={`text-xs tabular-nums ${isSkinned ? "" : "text-stone-400"}`} style={subStyle}>
-          {playingId === latest.id ? remainingLabel : latest.duration}
-        </p>
+    <div className={barItem ? "pb-24" : ""}>
+      <ChannelHeader contentCount={audios.length} />
+
+      <div className="mt-6">
+        <ContentToolbar query={query} onChange={setQuery} />
+        <ContentGrid
+          items={items}
+          thumbnailUrl={artwork.thumbnailUrl}
+          currentId={barItem?.id}
+          isPlaying={player.isPlaying}
+          onSelect={player.toggle}
+          isSearching={Boolean(query.search.trim())}
+        />
       </div>
 
-      {rest.length > 0 && (
-        <div className="space-y-0.5 px-2 pb-6">
-          {rest.map((item) => {
-            const isPlayingThis = playingId === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => togglePlay(item)}
-                disabled={!item.previewUrl}
-                className={`flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                  isSkinned ? "hover:bg-white/10" : "hover:bg-stone-100"
-                }`}
-              >
-                <span
-                  className={`flex min-w-0 items-center gap-2 text-sm ${isSkinned ? "" : "text-stone-700"}`}
-                  style={titleStyle}
-                >
-                  {isPlayingThis ? <Pause size={13} className="shrink-0" /> : <Play size={13} className="shrink-0" />}
-                  <span className="truncate">{item.title}</span>
-                </span>
-                <span
-                  className={`shrink-0 text-xs tabular-nums ${isSkinned ? "" : "text-stone-400"}`}
-                  style={subStyle}
-                >
-                  {isPlayingThis ? remainingLabel : item.duration}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      <audio
-        ref={audioRef}
-        onTimeUpdate={handleTimeUpdate}
-        onEnded={() => {
-          setPlayingId(null);
-          setRemainingLabel("");
-        }}
-        className="hidden"
+      <PlayerBar
+        player={player}
+        item={barItem}
+        thumbnailUrl={artwork.thumbnailUrl}
+        onClose={() => setDismissedSelection(true)}
       />
     </div>
   );

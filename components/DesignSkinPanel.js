@@ -2,12 +2,14 @@
 
 import { useRef, useState } from "react";
 import { CheckCircle2, ImageIcon, RotateCcw, UploadCloud } from "lucide-react";
+import { ChannelImagePanel } from "@/components/channel/ChannelImageEditor";
 import { useChannel } from "@/components/ChannelProvider";
 import { useAppStore } from "@/lib/store";
+import { ChannelImageSlot } from "@/lib/channelProfile";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function DesignSkinPanel() {
-  const { skinImageUrl, setSkinImage, resetSkinImage, textColor, setTextColor } = useAppStore();
+  const { skinImageUrl, setSkinImage, resetSkinImage } = useAppStore();
   const { repos } = useChannel();
   const [previewFile, setPreviewFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -65,15 +67,20 @@ export default function DesignSkinPanel() {
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-stone-500">
+        채널 페이지 상단을 꾸밉니다. 채널 페이지에서 관리자로 볼 때 이미지 위의 &ldquo;변경&rdquo; 버튼으로도
+        바로 바꿀 수 있어요.
+      </p>
+      <ChannelImagePanel slot={ChannelImageSlot.BANNER} />
+      <ChannelImagePanel slot={ChannelImageSlot.COVER} />
+
       <div className="rounded-xl border border-stone-200 bg-white p-4">
         <p className="flex items-center gap-1.5 text-sm font-medium text-stone-800">
-          <ImageIcon size={15} /> 배경 이미지 하나로 홈 화면 디자인을 입힙니다
+          <ImageIcon size={15} /> 기본 배경 이미지
         </p>
         <p className="mt-1.5 text-xs leading-relaxed text-stone-500">
-          업로드한 이미지 한 장이 홈 화면 전체(맨 위 로고·메뉴 영역까지)의 배경으로
-          깔려서 하나의 그림 같은 느낌을 줘요. &ldquo;제작/관리&rdquo; 페이지 등 다른 화면은
-          작업에 방해되지 않도록 원래의 흰 배경을 그대로 유지합니다. 지금은 모바일
-          화면 기준으로 맞춰뒀습니다.
+          대표이미지나 로고를 아직 등록하지 않았을 때 그 자리를 대신 채우는 이미지예요.
+          (예전 &ldquo;홈 화면 배경 스킨&rdquo;이 이 역할로 바뀌었어요.)
         </p>
         <div className="mt-3 rounded-lg bg-stone-50 p-3 text-xs text-stone-500">
           <p className="font-medium text-stone-600">권장 이미지 사양</p>
@@ -95,12 +102,12 @@ export default function DesignSkinPanel() {
       </div>
 
       <div className="rounded-xl border border-stone-200 bg-white p-4">
-        <p className="text-xs font-medium text-stone-500">현재 적용된 배경</p>
+        <p className="text-xs font-medium text-stone-500">현재 기본 배경 이미지</p>
         <div className="mt-2 flex h-40 items-center justify-center overflow-hidden rounded-lg bg-stone-100">
           {skinImageUrl ? (
             <img src={skinImageUrl} alt="현재 배경 스킨" className="h-full w-full object-cover" />
           ) : (
-            <span className="text-xs text-stone-400">적용된 배경 이미지가 없습니다 (기본 화면)</span>
+            <span className="text-xs text-stone-400">등록된 기본 배경 이미지가 없습니다</span>
           )}
         </div>
         {skinImageUrl && (
@@ -109,31 +116,15 @@ export default function DesignSkinPanel() {
             onClick={handleReset}
             className="mt-3 flex items-center gap-1.5 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100"
           >
-            <RotateCcw size={13} /> 기본 화면으로 되돌리기
+            <RotateCcw size={13} /> 기본 배경 이미지 지우기
           </button>
         )}
-
-        <div className="mt-4 flex items-center justify-between border-t border-stone-100 pt-3">
-          <div>
-            <p className="text-xs font-medium text-stone-600">홈 화면 글자색</p>
-            <p className="mt-0.5 text-[11px] text-stone-400">
-              배경 이미지 위에 올라가는 제목·목록 글자 색이에요.
-            </p>
-          </div>
-          <input
-            type="color"
-            value={textColor || "#ffffff"}
-            onChange={(e) => setTextColor(e.target.value)}
-            className="h-9 w-9 cursor-pointer rounded-lg border border-stone-300 bg-white p-0.5"
-            aria-label="홈 화면 글자색 선택"
-          />
-        </div>
       </div>
 
       <div className="rounded-xl border border-dashed border-stone-300 bg-white p-4">
         <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg py-8 text-sm text-stone-500 hover:bg-stone-50">
           <UploadCloud size={22} />
-          새 배경 이미지 선택하기
+          새 기본 배경 이미지 선택하기
           <input
             ref={fileInputRef}
             type="file"
@@ -173,7 +164,7 @@ export default function DesignSkinPanel() {
         {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
         {appliedMessage && !error && (
           <p className="mt-3 flex items-center gap-1.5 text-xs text-emerald-600">
-            <CheckCircle2 size={13} /> 배경 이미지가 적용됐어요.
+            <CheckCircle2 size={13} /> 기본 배경 이미지가 적용됐어요.
           </p>
         )}
       </div>
