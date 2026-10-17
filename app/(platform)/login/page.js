@@ -1,4 +1,4 @@
-import { SITE_NAME } from "@/lib/mockData";
+import { PLATFORM_NAME } from "@/lib/mockData";
 
 export default function LoginPage() {
   return (
@@ -7,7 +7,7 @@ export default function LoginPage() {
         은
       </span>
       <h1 className="mt-4 text-xl font-semibold text-stone-900">
-        {SITE_NAME}
+        {PLATFORM_NAME}
       </h1>
       <p className="mt-2 text-sm text-stone-500">
         동료 목회자들과 짧은 은혜의 순간을 나눠보세요.

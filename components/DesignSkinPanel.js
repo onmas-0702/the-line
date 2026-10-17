@@ -2,12 +2,13 @@
 
 import { useRef, useState } from "react";
 import { CheckCircle2, ImageIcon, RotateCcw, UploadCloud } from "lucide-react";
-import { uploadSkinImage } from "@/lib/siteSettings";
+import { useChannel } from "@/components/ChannelProvider";
 import { useAppStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function DesignSkinPanel() {
   const { skinImageUrl, setSkinImage, resetSkinImage, textColor, setTextColor } = useAppStore();
+  const { repos } = useChannel();
   const [previewFile, setPreviewFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [isApplying, setIsApplying] = useState(false);
@@ -43,7 +44,7 @@ export default function DesignSkinPanel() {
         setPreviewFile(null);
         return;
       }
-      const result = await uploadSkinImage(previewFile);
+      const result = await repos.siteSettings.uploadSkinImage(previewFile);
       if (result.ok) {
         setSkinImage(result.url);
         setAppliedMessage(true);

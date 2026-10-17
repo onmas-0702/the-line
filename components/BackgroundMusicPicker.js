@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Play, Pause, Upload, Trash2, Library, Layers, Filter } from "lucide-react";
-import { decodeBlobToBuffer } from "@/lib/audio";
-import { uploadBackgroundTrack } from "@/lib/audioStorage";
+import { AudioEngine } from "@/lib/audio";
+import { useChannel } from "@/components/ChannelProvider";
 import { BACKGROUND_GENRES, BACKGROUND_THEMES, officialBackgroundThemes } from "@/lib/mockData";
 import { useAppStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
@@ -90,6 +90,7 @@ function TrackRow({ track, selected, onSelect, previewing, onPreview, onDelete }
 
 export default function BackgroundMusicPicker({ selectedTrackId, onSelect, volume = 1 }) {
   const { personalTracks, addPersonalTrack, addPersonalTrackFromRow, deletePersonalTrack } = useAppStore();
+  const { repos } = useChannel();
   const [activeSection, setActiveSection] = useState("official");
   const [openThemeId, setOpenThemeId] = useState(officialBackgroundThemes[0]?.id ?? null);
   const [previewingId, setPreviewingId] = useState(null);
@@ -176,12 +177,12 @@ export default function BackgroundMusicPicker({ selectedTrackId, onSelect, volum
     try {
       let durationSeconds = 0;
       try {
-        const buffer = await decodeBlobToBuffer(file);
+        const buffer = await AudioEngine.decodeBlob(file);
         durationSeconds = buffer.duration;
       } catch (err) {
         // 디코딩에 실패해도 파일 자체는 그대로 업로드합니다 (길이 정보만 0으로).
       }
-      const result = await uploadBackgroundTrack({
+      const result = await repos.backgroundTracks.upload({
         file,
         name,
         durationSeconds,

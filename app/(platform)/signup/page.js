@@ -1,4 +1,4 @@
-import { SITE_NAME } from "@/lib/mockData";
+import { PLATFORM_NAME } from "@/lib/mockData";
 
 // /login과 마찬가지로 아직 와이어프레임 단계입니다 — 실제 회원가입 로직은
 // 랜딩/구독 기능과 함께 나중에 연결할 예정이라, 지금은 홈 화면 상단의
@@ -10,7 +10,7 @@ export default function SignupPage() {
         은
       </span>
       <h1 className="mt-4 text-xl font-semibold text-stone-900">
-        {SITE_NAME}
+        {PLATFORM_NAME}
       </h1>
       <p className="mt-2 text-sm text-stone-500">
         동료 목회자들과 짧은 은혜의 순간을 나눠보세요.

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { AlertCircle, Pencil, Trash2, X } from "lucide-react";
-import { deleteAudioRecord, updateAudioRecord } from "@/lib/audioStorage";
+import { useChannel } from "@/components/ChannelProvider";
+import { AudioMetadata } from "@/lib/audioStorage";
 import { CATEGORY_OPTIONS } from "@/lib/mockData";
 import { useAppStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
@@ -10,6 +11,7 @@ import { isSupabaseConfigured } from "@/lib/supabaseClient";
 // 오디오 파일 자체(믹싱 결과)는 다시 편집하지 않고, 검색/분류에 쓰이는
 // 메타데이터만 고칠 수 있게 합니다 — 업로드 폼과 같은 항목입니다.
 function EditForm({ item, onCancel, onSave }) {
+  const { repos } = useChannel();
   const [title, setTitle] = useState(item.title || "");
   const [pastorName, setPastorName] = useState(item.pastorName || "");
   const [church, setChurch] = useState(item.church || "");
@@ -22,10 +24,7 @@ function EditForm({ item, onCancel, onSave }) {
 
   async function handleSave() {
     const resolvedTitle = title.trim() || "제목 없는 나눔";
-    const tags = tagsInput
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
+    const tags = AudioMetadata.parseTags(tagsInput);
     const metadata = {
       title: resolvedTitle,
       pastorName: pastorName.trim(),
@@ -39,7 +38,7 @@ function EditForm({ item, onCancel, onSave }) {
     setError("");
     try {
       if (isSupabaseConfigured) {
-        const result = await updateAudioRecord(item.id, metadata);
+        const result = await repos.audios.update(item.id, metadata);
         if (!result.ok) {
           setError(`저장에 실패했어요: ${result.reason}`);
           return;
@@ -146,6 +145,7 @@ function EditForm({ item, onCancel, onSave }) {
 
 export default function ManageContentPanel() {
   const { audios, removeAudioLocal, updateAudioLocal } = useAppStore();
+  const { repos } = useChannel();
   const [editingId, setEditingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
@@ -159,7 +159,7 @@ export default function ManageContentPanel() {
     setDeletingId(item.id);
     try {
       if (isSupabaseConfigured) {
-        const result = await deleteAudioRecord(item.id);
+        const result = await repos.audios.delete(item.id);
         if (!result.ok) {
           setError(`삭제에 실패했어요: ${result.reason}`);
           return;

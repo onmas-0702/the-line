@@ -3,21 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Mic, LogIn, UserPlus } from "lucide-react";
-import { SITE_NAME } from "@/lib/mockData";
+import { useChannel } from "@/components/ChannelProvider";
 import { useAppStore } from "@/lib/store";
 
-const links = [
-  { href: "/", label: "홈", icon: Home },
-  { href: "/record", label: "제작/관리", icon: Mic },
+// 채널 안의 메뉴 — 실제 주소는 채널마다 /{채널주소}/… 로 붙습니다.
+const channelLinks = [
+  { sub: "", label: "홈", icon: Home },
+  { sub: "record", label: "제작/관리", icon: Mic },
 ];
 
 export default function NavBar() {
   const pathname = usePathname();
   const { skinImageUrl, textColor } = useAppStore();
+  const { channel } = useChannel();
+  const links = channelLinks.map((link) => ({ ...link, href: channel.path(link.sub) }));
   // 홈 화면에 배경 스킨이 적용되어 있을 때만 "한 장의 그림" 같은 느낌을 위해
   // 상단/하단 내비게이션을 투명한 아이콘(말풍선 모양 칩)만 남기고, 그 외
   // 페이지는 원래의 일반 흰색 내비게이션을 그대로 씁니다.
-  const minimalHome = pathname === "/" && Boolean(skinImageUrl);
+  const minimalHome = pathname === channel.path() && Boolean(skinImageUrl);
   const iconColor = textColor || "#ffffff";
 
   if (minimalHome) {
@@ -26,10 +29,10 @@ export default function NavBar() {
         <header className="sticky top-0 z-10">
           <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
             <Link
-              href="/"
+              href={channel.path()}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-sm font-semibold backdrop-blur-sm"
               style={{ color: iconColor }}
-              aria-label={SITE_NAME}
+              aria-label={channel.name}
             >
               은
             </Link>
@@ -84,12 +87,12 @@ export default function NavBar() {
     <>
       <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href={channel.path()} className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-700 text-sm font-semibold text-white">
               은
             </span>
             <span className="text-sm font-semibold text-stone-800 sm:text-base">
-              {SITE_NAME}
+              {channel.name}
             </span>
           </Link>
 
