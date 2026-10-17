@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Mic, Upload, CheckCircle2, AlertCircle, Undo2, Image as ImageIcon, ListChecks } from "lucide-react";
 import ClipTimeline from "@/components/ClipTimeline";
+import ContentCoverPicker from "@/components/ContentCoverPicker";
 import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
 import DesignSkinPanel from "@/components/DesignSkinPanel";
 import ManageContentPanel from "@/components/ManageContentPanel";
 import { AudioEngine, BackgroundMixer, TimeFormat, WavEncoder } from "@/lib/audio";
 import { useChannel } from "@/components/ChannelProvider";
 import { AudioMetadata } from "@/lib/audioStorage";
+import { ContentCoverChoice } from "@/lib/contentCover";
 import { CATEGORY_OPTIONS } from "@/lib/mockData";
 import { MicrophoneDevices, MicrophoneRecorder, RecorderError } from "@/lib/recorder";
 import { useAppStore } from "@/lib/store";
@@ -17,7 +19,7 @@ import { isSupabaseConfigured } from "@/lib/supabaseClient";
 import { FocusGuard, Segment, Timeline, UndoHistory } from "@/lib/timeline";
 
 export default function RecordPage() {
-  const { addAudio, addAudioFromRow, personalTracks } = useAppStore();
+  const { addAudio, addAudioFromRow, updateAudioLocal, personalTracks } = useAppStore();
   const { repos } = useChannel();
 
   // 페이지 최상단 탭: 제작(녹음/편집/저장) / 콘텐츠 관리(업로드한 것 삭제·편집) /
@@ -54,6 +56,8 @@ export default function RecordPage() {
   const [tagsInput, setTagsInput] = useState("");
   const [description, setDescription] = useState("");
   const [scriptFile, setScriptFile] = useState(null);
+  // 콘텐츠 배경이미지 — 고르지 않으면 채널 기본 배경 이미지를 씁니다(로고는 쓰지 않음).
+  const [coverChoice, setCoverChoice] = useState(() => ContentCoverChoice.none());
 
   const [savedMessage, setSavedMessage] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -263,6 +267,7 @@ export default function RecordPage() {
     setTagsInput("");
     setDescription("");
     setScriptFile(null);
+    setCoverChoice(ContentCoverChoice.none());
   }
 
   async function handleSave() {
@@ -280,6 +285,12 @@ export default function RecordPage() {
       }
       const wavBlob = WavEncoder.encode(finalBuffer);
       const resolvedTitle = title.trim() || "제목 없는 나눔";
+      // 새 배경이미지는 여기서 라이브러리에 보관(원본 + 화면용)하고, 콘텐츠에 넣을 값을 받습니다.
+      const coverResult = await coverChoice.commit(repos.library, { name: resolvedTitle });
+      const coverNotice =
+        coverChoice.hasImage && !coverResult.archived
+          ? " 배경이미지는 DB 업데이트(마이그레이션 0006·0011·0012) 전이라 이 탭에서만 보여요."
+          : "";
 
       if (isSupabaseConfigured) {
         const metadata = new AudioMetadata({
@@ -293,13 +304,19 @@ export default function RecordPage() {
           durationSeconds: finalBuffer.duration,
           source: clipSegments.some((s) => s.source === "recorded") ? "recorded" : "uploaded",
         });
-        const result = await repos.audios.upload({ wavBlob, scriptFile, metadata });
+        const result = await repos.audios.upload({ wavBlob, scriptFile, metadata, cover: coverResult.cover });
         if (result.ok) {
           addAudioFromRow(result.row);
+          // 서버에 배경이미지를 저장하지 못했으면(마이그레이션 전) 이 탭에서만이라도 보여줍니다.
+          if (coverResult.displayUrl && (result.coverSkipped || !coverResult.cover)) {
+            updateAudioLocal(result.row.id, { coverImageUrl: coverResult.displayUrl });
+            setSaveError(coverNotice.trim() || "배경이미지는 DB 업데이트 전이라 이 탭에서만 보여요.");
+          }
         } else {
           // 서버 저장에 실패해도 방금 만든 결과물을 잃지 않도록, 이 브라우저에만이라도 남겨둡니다.
           setSaveError(`서버 저장에 실패해서 이 브라우저에만 임시로 저장했어요. (${result.reason})`);
           addAudio({
+            coverImageUrl: coverResult.displayUrl,
             title: resolvedTitle,
             pastorName: pastorName.trim(),
             church: church.trim(),
@@ -311,6 +328,7 @@ export default function RecordPage() {
         }
       } else {
         addAudio({
+          coverImageUrl: coverResult.displayUrl,
           title: resolvedTitle,
           pastorName: pastorName.trim() || undefined,
           church: church.trim() || undefined,
@@ -540,6 +558,16 @@ export default function RecordPage() {
             </p>
           )}
           {bgMixError && <p className="mt-1 text-xs text-red-600">{bgMixError}</p>}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-base font-semibold text-stone-900">배경이미지</h2>
+        <p className="mt-1 text-xs text-stone-400">
+          이 콘텐츠의 카드 표지와 재생 화면에 쓰일 이미지예요. 고르지 않으면 채널 기본 배경 이미지가 쓰여요.
+        </p>
+        <div className="mt-3 rounded-xl border border-stone-200 bg-white p-4">
+          <ContentCoverPicker value={coverChoice} onChange={setCoverChoice} disabled={isSaving} />
         </div>
       </section>
 

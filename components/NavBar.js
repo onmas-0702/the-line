@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Mic, LogIn } from "lucide-react";
+import { Home, Mic, LogIn, UserPlus } from "lucide-react";
 import { useChannel } from "@/components/ChannelProvider";
 import { useViewer } from "@/components/ViewerProvider";
 import { AccessPolicy } from "@/lib/access";
+import { useAppStore } from "@/lib/store";
 
 // 채널 안의 메뉴 — 실제 주소는 채널마다 /{채널주소}/… 로 붙습니다. 제작/관리는
 // 그 채널을 관리할 수 있는 사람에게만 보입니다.
+// 콘텐츠 화면(배경이미지가 화면 전체에 깔리는 곳)에서는 "한 장의 그림" 같은 느낌을 위해
+// 투명한 아이콘(말풍선 모양 칩)만 남기고, 그 외 화면은 일반 흰색 내비게이션을 씁니다.
 const channelLinks = [
   { sub: "", label: "홈", icon: Home },
   { sub: "record", label: "제작/관리", icon: Mic, managersOnly: true },
@@ -22,6 +25,11 @@ export default function NavBar() {
   const links = channelLinks
     .filter((link) => !link.managersOnly || canManage)
     .map((link) => ({ ...link, href: channel.path(link.sub) }));
+
+  const isImmersive = useIsImmersiveContent(pathname);
+  if (isImmersive) {
+    return <ImmersiveNav channel={channel} links={links} pathname={pathname} />;
+  }
 
   return (
     <>
@@ -94,6 +102,60 @@ export default function NavBar() {
               >
                 <Icon size={20} strokeWidth={active ? 2.4 : 2} />
                 {link.label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
+  );
+}
+
+/** 지금 화면이 배경이미지가 깔린 콘텐츠 화면인지. */
+function useIsImmersiveContent(pathname) {
+  const { channel } = useChannel();
+  const { audios, artwork } = useAppStore();
+  if (!channel.isContentPath(pathname)) return false;
+  const contentId = decodeURIComponent(pathname.split("/").pop());
+  const item = audios.find((a) => a.id === contentId);
+  return Boolean(item && artwork.thumbnailFor(item));
+}
+
+const CHIP = "flex items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition hover:bg-white/25";
+
+function ImmersiveNav({ channel, links, pathname }) {
+  return (
+    <>
+      <header className="sticky top-0 z-10">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+          <Link href={channel.path()} className={`${CHIP} h-8 w-8 text-sm font-semibold`} aria-label={`${channel.name} 채널로`}>
+            은
+          </Link>
+          <div className="flex items-center gap-1.5">
+            <Link href="/login" className={`${CHIP} h-9 w-9`} aria-label="로그인">
+              <LogIn size={16} />
+            </Link>
+            <Link href="/signup" className={`${CHIP} h-9 w-9`} aria-label="회원가입">
+              <UserPlus size={16} />
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <nav className="fixed inset-x-0 bottom-0 z-10 sm:hidden">
+        <div className="mx-auto flex max-w-3xl items-center justify-center gap-3 px-4 pb-4">
+          {links.map((link) => {
+            const Icon = link.icon;
+            const active = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-white backdrop-blur-sm transition"
+                style={{ backgroundColor: active ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)" }}
+                aria-label={link.label}
+              >
+                <Icon size={18} strokeWidth={active ? 2.4 : 2} />
               </Link>
             );
           })}

@@ -1,9 +1,11 @@
 "use client";
 
 // 채널 페이지의 콘텐츠 영역 — 정렬 칩(최신순·인기순·날짜순) + 검색 + 카드 목록.
+// 카드는 재생하지 않고 콘텐츠 화면으로 이동합니다(재생은 콘텐츠 화면에서).
 
 import { useEffect, useRef, useState } from "react";
-import { Headphones, Pause, Play, Search, X } from "lucide-react";
+import Link from "next/link";
+import { Headphones, Play, Search, X } from "lucide-react";
 import ContentThumbnail from "@/components/ContentThumbnail";
 import { ChannelContentQuery } from "@/lib/channelProfile";
 
@@ -75,42 +77,34 @@ export function ContentToolbar({ query, onChange }) {
   );
 }
 
-function ContentCard({ item, thumbnailUrl, isCurrent, isPlaying, onSelect }) {
-  const playable = Boolean(item.previewUrl);
+// 카드를 누르면 그 콘텐츠의 화면(전체 화면 배경 + 큰 재생 버튼)으로 이동합니다.
+function ContentCard({ item, href, thumbnailUrl }) {
   return (
-    <article id={`content-${item.id}`} className="scroll-mt-32">
-      <button
-        type="button"
-        onClick={() => onSelect(item)}
-        disabled={!playable}
-        title={playable ? undefined : "샘플 데이터입니다 (재생 준비중)"}
-        className={`group relative block w-full rounded-2xl text-left disabled:cursor-not-allowed ${
-          isCurrent ? "ring-2 ring-amber-600 ring-offset-2 ring-offset-stone-50" : ""
-        }`}
-        aria-label={isPlaying ? `${item.title} 정지` : `${item.title} 재생`}
-      >
-        <ContentThumbnail item={item} imageUrl={thumbnailUrl} className="aspect-square w-full transition group-hover:brightness-95" />
-        <span
-          className={`absolute bottom-2.5 right-2.5 flex h-9 w-9 items-center justify-center rounded-full shadow ${
-            playable ? "bg-white text-amber-800" : "bg-white/60 text-stone-400"
-          }`}
-        >
-          {isPlaying ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
-        </span>
-      </button>
-      <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-stone-900">{item.title}</h3>
-      <p className="mt-0.5 truncate text-xs text-amber-700">
-        {item.pastorName}
-        {item.scriptureReference ? ` · ${item.scriptureReference}` : ""}
-      </p>
-      <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-400">
-        <Headphones size={11} /> 조회수 {item.plays || 0}회 · {item.date}
-      </p>
+    <article>
+      <Link href={href} className="group block" aria-label={`${item.title} 듣기`}>
+        <div className="relative">
+          <ContentThumbnail item={item} imageUrl={thumbnailUrl} className="aspect-square w-full transition group-hover:brightness-95" />
+          <span className="absolute bottom-2.5 right-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-white text-amber-800 shadow">
+            <Play size={15} className="ml-0.5" />
+          </span>
+        </div>
+        <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-stone-900 group-hover:text-amber-800">
+          {item.title}
+        </h3>
+        <p className="mt-0.5 truncate text-xs text-amber-700">
+          {item.pastorName}
+          {item.scriptureReference ? ` · ${item.scriptureReference}` : ""}
+        </p>
+        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-400">
+          <Headphones size={11} /> 조회수 {item.plays || 0}회 · {item.date}
+        </p>
+      </Link>
     </article>
   );
 }
 
-export function ContentGrid({ items, thumbnailUrl, currentId, isPlaying, onSelect, isSearching }) {
+/** artwork(ChannelArtwork)로 콘텐츠마다 표지를 고릅니다: 콘텐츠 배경이미지 → 채널 기본 배경 이미지. */
+export function ContentGrid({ items, artwork, channel, isSearching }) {
   if (items.length === 0) {
     return (
       <p className="mt-6 rounded-xl bg-stone-100 px-4 py-10 text-center text-sm text-stone-400">
@@ -124,10 +118,8 @@ export function ContentGrid({ items, thumbnailUrl, currentId, isPlaying, onSelec
         <ContentCard
           key={item.id}
           item={item}
-          thumbnailUrl={thumbnailUrl}
-          isCurrent={currentId === item.id}
-          isPlaying={isPlaying && currentId === item.id}
-          onSelect={onSelect}
+          href={channel.contentPath(item.id)}
+          thumbnailUrl={artwork.thumbnailFor(item)}
         />
       ))}
     </div>

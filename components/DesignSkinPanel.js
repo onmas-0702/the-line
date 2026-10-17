@@ -79,7 +79,8 @@ export default function DesignSkinPanel() {
           <ImageIcon size={15} /> 기본 배경 이미지
         </p>
         <p className="mt-1.5 text-xs leading-relaxed text-stone-500">
-          대표이미지나 로고를 아직 등록하지 않았을 때 그 자리를 대신 채우는 이미지예요.
+          배경이미지를 따로 고르지 않은 콘텐츠의 카드 표지, 그리고 대표이미지·로고를 아직 등록하지
+          않았을 때 그 자리를 대신 채우는 이미지예요.
           (예전 &ldquo;홈 화면 배경 스킨&rdquo;이 이 역할로 바뀌었어요.)
         </p>
         <div className="mt-3 rounded-lg bg-stone-50 p-3 text-xs text-stone-500">

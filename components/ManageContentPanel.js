@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { AlertCircle, Pencil, Trash2, X } from "lucide-react";
+import ContentCoverPicker from "@/components/ContentCoverPicker";
+import ContentThumbnail from "@/components/ContentThumbnail";
 import { useChannel } from "@/components/ChannelProvider";
 import { AudioMetadata } from "@/lib/audioStorage";
+import { ContentCoverChoice } from "@/lib/contentCover";
 import { CATEGORY_OPTIONS } from "@/lib/mockData";
 import { useAppStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
@@ -19,8 +22,22 @@ function EditForm({ item, onCancel, onSave }) {
   const [category, setCategory] = useState(item.category || "");
   const [tagsInput, setTagsInput] = useState((item.tags || []).join(", "));
   const [description, setDescription] = useState(item.description || "");
+  const [coverChoice, setCoverChoice] = useState(() => ContentCoverChoice.keep(item));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+
+  /** 배경이미지가 바뀌었으면 저장하고, 화면에 반영할 값을 돌려줍니다(안 바뀌었으면 {}). */
+  async function saveCover() {
+    if (!coverChoice.isChanged) return { patch: {}, notice: "" };
+    const result = await coverChoice.commit(repos.library, { name: title.trim() || item.title });
+    const patch = { coverImageUrl: result.displayUrl, coverAssetId: result.cover?.coverAssetId ?? null };
+    const pendingNotice = "배경이미지는 DB 업데이트(마이그레이션 0006·0011·0012) 전이라 이 탭에서만 바뀌었어요.";
+    if (!isSupabaseConfigured) return { patch, notice: "" };
+    // 새 이미지를 보관하지 못했으면 서버의 기존 값은 그대로 두고 이 탭에서만 보여줍니다.
+    if (coverChoice.hasImage && !result.cover) return { patch, notice: pendingNotice };
+    const saved = await repos.audios.updateCover(item.id, result.cover);
+    return { patch, notice: saved.ok ? "" : pendingNotice };
+  }
 
   async function handleSave() {
     const resolvedTitle = title.trim() || "제목 없는 나눔";
@@ -44,7 +61,8 @@ function EditForm({ item, onCancel, onSave }) {
           return;
         }
       }
-      onSave(metadata);
+      const cover = await saveCover();
+      onSave({ ...metadata, ...cover.patch }, cover.notice);
     } finally {
       setIsSaving(false);
     }
@@ -52,6 +70,12 @@ function EditForm({ item, onCancel, onSave }) {
 
   return (
     <div className="mt-3 space-y-2.5 rounded-lg bg-stone-50 p-3">
+      <div>
+        <label className="block text-xs font-medium text-stone-500">배경이미지</label>
+        <div className="mt-1 rounded-lg border border-stone-200 bg-white p-3">
+          <ContentCoverPicker value={coverChoice} onChange={setCoverChoice} disabled={isSaving} />
+        </div>
+      </div>
       <div>
         <label className="block text-xs font-medium text-stone-500">제목</label>
         <input
@@ -144,11 +168,12 @@ function EditForm({ item, onCancel, onSave }) {
 }
 
 export default function ManageContentPanel() {
-  const { audios, removeAudioLocal, updateAudioLocal } = useAppStore();
+  const { audios, artwork, removeAudioLocal, updateAudioLocal } = useAppStore();
   const { repos } = useChannel();
   const [editingId, setEditingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   async function handleDelete(item) {
     if (typeof window !== "undefined") {
@@ -189,13 +214,24 @@ export default function ManageContentPanel() {
           <AlertCircle size={16} /> {error}
         </div>
       )}
+      {notice && (
+        <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-700">
+          <AlertCircle size={14} /> {notice}
+        </div>
+      )}
 
       {audios.map((item) => {
         const isEditing = editingId === item.id;
         return (
           <div key={item.id} className="rounded-xl border border-stone-200 bg-white p-4">
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
+              <ContentThumbnail
+                item={item}
+                imageUrl={artwork.thumbnailFor(item)}
+                showDuration={false}
+                className="h-14 w-14 shrink-0 rounded-xl p-0"
+              />
+              <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-amber-700">
                   {[item.pastorName, item.church].filter(Boolean).join(" · ") || "정보 없음"}
                 </p>
@@ -231,8 +267,9 @@ export default function ManageContentPanel() {
               <EditForm
                 item={item}
                 onCancel={() => setEditingId(null)}
-                onSave={(metadata) => {
+                onSave={(metadata, saveNotice = "") => {
                   updateAudioLocal(item.id, metadata);
+                  setNotice(saveNotice);
                   setEditingId(null);
                 }}
               />

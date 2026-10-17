@@ -36,7 +36,7 @@ function withHref(audios, slugMap = new Map(), thumbnails = new ChannelThumbnail
   return audios.map((a) => ({
     ...a,
     href: Channel.contentHref(slugMap.get(a.channelId) || ChannelSlug.DEFAULT, a.id),
-    thumbnailUrl: thumbnails.for(a.channelId),
+    thumbnailUrl: thumbnails.forItem(a),
   }));
 }
 

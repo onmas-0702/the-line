@@ -7,6 +7,7 @@
 import { createContext, useContext, useMemo } from "react";
 import { AudioRepository, BackgroundTrackRepository } from "@/lib/audioStorage";
 import { Channel, ChannelRepository } from "@/lib/channel";
+import { LibraryRepository } from "@/lib/library";
 import { SiteSettingsRepository } from "@/lib/siteSettings";
 
 const ChannelContext = createContext(null);
@@ -22,6 +23,7 @@ export default function ChannelProvider({ channel: channelData, children }) {
         backgroundTracks: new BackgroundTrackRepository(scope),
         siteSettings: new SiteSettingsRepository(scope),
         channels: new ChannelRepository(),
+        library: new LibraryRepository(scope),
       },
     };
     // 채널이 바뀔 때만 다시 만듭니다(같은 채널 안에서 이동할 땐 그대로 유지).
