@@ -67,19 +67,25 @@ auth.users ──1 profiles (표시 이름)
      └──< comments
 
 channels ──< audios ──< comments
-    ├──< background_tracks (personal)   ※ official 트랙은 channel_id 없음 = 전 채널 공용
-    └──1 site_settings (배경 스킨·글자색)
+    ├──< library_assets (올린 자산)  ※ 운영 채널(is_platform)의 shared 자산 = 플랫폼 공용
+    ├──< channel_library_links >── library_assets   ← 공용 자산 "가져가기"(연결)
+    ├──< channel_followers              ← 구독
+    ├──< background_tracks              ※ library_assets로 옮길 예정
+    └──1 site_settings (로고·대표이미지·소개글·기본 배경 이미지)
 ```
 
 | 테이블 | 역할 |
 | --- | --- |
-| `channels` | 채널 하나. `slug`(주소), `name`, `owner_id`, `status`(`pending`/`active`/`suspended`) |
+| `channels` | 채널 하나. `slug`(주소), `name`, `owner_id`, `status`(`pending`/`active`/`suspended`), `is_platform`(운영 채널) |
 | `channel_members` | 채널 운영자들. `role` = `owner` / `editor` |
 | `plans` | 유료회원 요금제(가격, 한도 `limits` — 예: `{"channels": 1, "storage_mb": 5000}`) |
 | `member_subscriptions` | 회원 1명당 구독 1개. 결제 상태. PG 연동 시 서버만 씀 |
 | `profiles` | 회원 표시 이름·사진. 가입 시 자동 생성 (0007) |
 | `comments` | 댓글. 누구나 읽기, 회원만 쓰기 (0007) |
 | `audios`, `background_tracks`, `site_settings` | 기존 테이블에 `channel_id` 추가 |
+| `library_assets` | 배경음악·배경이미지 등 자산. 공개 범위, 가져가기·다운로드 허용, 출처 증빙 (0011) |
+| `channel_library_links` | 다른 채널이 공용 자산을 가져간 연결 (0011) |
+| `channel_followers` | 채널 구독. 화면에는 숫자만 공개 (0010) |
 
 - 스토리지 파일은 `channels/{channel_id}/…` 폴더 아래에 저장됩니다(채널 삭제·용량
   집계용). 기존 파일은 예전 경로 그대로 둡니다.
@@ -90,6 +96,7 @@ channels ──< audios ──< comments
 | 위치 | 역할 |
 | --- | --- |
 | `lib/access.js` | `MemberTier`, `Viewer`, `AccessPolicy` — 회원 등급·권한 규칙 |
+| `lib/library.js` | `AssetKind`, `AssetProvenance`(출처·공용 공개 규칙), `LibraryAsset`, `LibraryRepository` — 공용 자산 라이브러리 |
 | `lib/channel.js` | `ChannelSlug`(주소 규칙·예약어), `Channel`(모델, `path()`), `ChannelRepository`, `ChannelResolver` |
 | `app/[channel]/layout.js` | 서버에서 주소 → 채널 조회. 없으면 404, `active`가 아니면 "준비 중" 안내 |
 | `components/ChannelProvider.js` | `useChannel()` → `{ channel, repos }`. 저장소는 전부 그 채널로 한정 |
@@ -105,7 +112,40 @@ channels ──< audios ──< comments
 기본 채널은 `channel.id = null`인 레거시 모드로 동작해서, 지금과 똑같이
 보입니다. 그래서 코드 배포와 SQL 적용 순서가 어긋나도 사이트가 깨지지 않습니다.
 
-## 5. 앞으로의 단계
+## 5. 공용 자산 라이브러리
+
+플랫폼 운영 채널('은혜의 밤, 더 라인')이 라이브러리에 올린 배경음악·배경이미지는
+**플랫폼 전체의 공용 자산**이 되고, 다른 채널은 이를 자기 채널로 가져가서 씁니다.
+
+| 항목 | 규칙 |
+| --- | --- |
+| 공용으로 올리기 | 운영 채널(`channels.is_platform`)의 관리자만. 채널 이름이 아니라 표시로 판단 |
+| 가져가기 | 파일 복사 없이 연결(`channel_library_links`). 운영 채널이 자료를 고치면 모두에게 반영 |
+| 다운로드 | 기본 금지(`allow_download = false`). 파일은 비공개 버킷 `library`에 두고, 재생·믹싱은 짧게 유효한 서명 URL로만 |
+| 지우기 | 공용 자산은 지우지 않고 숨김(`status = 'hidden'`). 배경음악은 저장 시 최종 파일에 합쳐지므로 이미 만든 콘텐츠는 그대로 |
+| 원본 보관 | 올린 원본 파일은 손대지 않고 보관(출처 메타데이터 유지). 믹싱은 복사본으로만 |
+| 출처 증빙 | 자산마다 `source`(직접 제작/Suno/구매·라이선스), 만든 당시 요금제, 생성일·다운로드일, 라이선스 메모 |
+
+권한은 `AccessPolicy.canPublishSharedAsset` / `canImportAsset` / `canDownloadAsset`,
+공용 공개 가능 여부는 `AssetProvenance.sharingProblems()`가 판단하고, 같은 규칙을 DB 트리거
+`library_assets_check_sharing`이 한 번 더 강제합니다.
+
+**Suno로 만든 곡** (Suno 약관, 2026-09-03 시행 기준 — 법률 자문 아님, 정식 공개 전 확인 권장)
+- 무료 플랜 곡은 비상업적 용도로만 가능 → 공용 라이브러리에 올릴 수 없음
+- Pro/Premier 요금제로 만들고 **Suno 정식 경로로 다운로드한 곡**만 상업적 이용 가능
+  → 공용으로 올릴 때 요금제·다운로드일 입력 필수
+- 제3자에게 파일을 넘기거나(양도·재라이선스·판매) 접근을 주는 것은 제한 →
+  **다운로드 허용 불가**, 플랫폼 안에서 가져가 쓰는 것만. 이 방식도 "접근 제공"으로 볼
+  여지가 있어 공용 라이브러리 정식 오픈 전에 Suno 문의나 법률 검토 필요
+- Suno가 넣은 워터마크·메타데이터 제거 금지, 다른 AI 학습에 사용 금지
+- 생성 곡에 저작권이 생긴다는 보장이 없음. 여러 채널이 같은 곡을 쓰므로 유통사
+  Content ID 등록은 하지 말 것(다른 채널 콘텐츠에 저작권 신고가 걸릴 수 있음)
+
+**옮기기 계획**: 라이브러리 화면을 만들 때 기존 `background_tracks`를 `library_assets`로
+옮기고(운영 채널 자료는 출처 확인 후 `shared`로 전환), 배경음악 선택 화면이
+`LibraryRepository`를 쓰게 바꿉니다. 그 전까지 앱은 `background_tracks`를 그대로 씁니다.
+
+## 6. 앞으로의 단계
 
 1. **회원가입·로그인 (Supabase Auth)** — `/login`, `/signup` 와이어프레임을 실제로
    연결. 서버에서도 세션을 읽을 수 있게 `@supabase/ssr` 도입. 로그인한 사람의
@@ -128,13 +168,16 @@ channels ──< audios ──< comments
    3. 채널 주소·이름 입력(`ChannelSlug.validate`로 즉시 확인) →
       `channels`(active) + `channel_members`(owner) 생성 (`AccessPolicy.canCreateChannel` 확인)
    4. 결제 실패·해지 → 구독 `past_due`/`canceled` → 소유 채널 `suspended`
-5. **운영사 화면 (`/admin`)** — 채널 목록, 상태 변경, 공식 배경음악 업로드.
-6. **플랫폼 홈 (`/`)** — 채널 목록·소개·개설 안내.
-7. **요금제 한도** — `plans.limits`(채널 수, 용량, 편집자 수 등)를 개설/업로드/초대 시 검사.
+5. **운영사 화면 (`/admin`)** — 채널 목록, 상태 변경.
+6. **공용 자산 라이브러리 화면** — 운영 채널의 자산 올리기(출처 입력), 다른 채널의
+   공용 라이브러리 둘러보기·가져가기, `background_tracks` 옮기기 (5장 참고).
+7. **플랫폼 홈 (`/`)** — 채널 목록·소개·개설 안내 추가.
+8. **요금제 한도** — `plans.limits`(채널 수, 용량, 편집자 수 등)를 개설/업로드/초대 시 검사.
 
-## 6. 나중에 정할 것
+## 7. 나중에 정할 것
 
 - 요금제 종류와 가격, 무료 체험 여부
+- 공용 자산(특히 Suno 곡)을 다른 채널이 쓰는 방식에 대한 Suno 측 확인·법률 검토 결과
 - 구독이 끝난 채널의 콘텐츠를 계속 공개할지(관람만 허용) 완전히 숨길지
 - 댓글 외에 회원 전용으로 둘 기능(좋아요, 구독/알림, 다운로드 등)
 - 결제 대행사(토스페이먼츠, 포트원 등)
