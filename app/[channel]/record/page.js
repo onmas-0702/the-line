@@ -38,7 +38,7 @@ export default function RecordPage() {
   const [isPreparingMic, setIsPreparingMic] = useState(false);
   const [segments, setSegments] = useState([]);
 
-  const [selectedTrack, setSelectedTrack] = useState("bg1");
+  const [selectedTrack, setSelectedTrack] = useState(null);
   // 배경음악 볼륨 — 나레이션 클립의 볼륨 게인과 완전히 같은 척도입니다
   // (0~2, 기본값 1 = 원본 그대로/중앙). 편집 타임라인 안의 배경음악 트랙
   // 세로선을 드래그해서 조절해요.
@@ -198,8 +198,8 @@ export default function RecordPage() {
   const clipCount = clipSegments.length;
   const totalClipSeconds = clipSegments.reduce((sum, s) => sum + (s.duration || 0), 0);
 
-  // 공식 라이브러리는 아직 실제 음원 파일이 없는 샘플 목록이라 믹싱에 반영할 수 없고,
-  // 내 라이브러리에서 실제로 업로드된(audioUrl이 있는) 트랙만 실제로 믹싱됩니다.
+  // 실제로 업로드된(audioUrl이 있는) 트랙만 믹싱됩니다 — 운영 채널은 관리자 라이브러리,
+  // 다른 채널은 내 라이브러리의 곡입니다(공식 라이브러리는 아직 파일 없는 샘플).
   const selectedBackgroundTrack = personalTracks.find(
     (t) => t.id === selectedTrack && t.audioUrl
   );
@@ -553,8 +553,7 @@ export default function RecordPage() {
             </p>
           ) : (
             <p className="mt-2 text-xs text-stone-400">
-              공식 라이브러리는 아직 실제 음원 파일이 없는 샘플이라 믹싱에 반영되지 않아요. 실제로 믹싱하려면
-              &quot;내 라이브러리&quot;에 배경음악을 업로드한 뒤 선택해주세요.
+              배경음악을 고르지 않았어요. 위 라이브러리에서 곡을 선택하면 목소리와 함께 믹싱돼요.
             </p>
           )}
           {bgMixError && <p className="mt-1 text-xs text-red-600">{bgMixError}</p>}
