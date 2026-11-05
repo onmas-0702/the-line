@@ -96,7 +96,10 @@ function ContentCard({ item, href, thumbnailUrl }) {
           {item.scriptureReference ? ` · ${item.scriptureReference}` : ""}
         </p>
         <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-400">
-          <Headphones size={11} /> {item.plays || 0}회 · {item.date}
+          <Headphones size={11} className="shrink-0" />
+          <span className="truncate">
+            {item.plays || 0}회 · {item.date}
+          </span>
         </p>
       </Link>
     </article>
@@ -113,7 +116,7 @@ export function ContentGrid({ items, artwork, channel, isSearching }) {
     );
   }
   return (
-    <div className="mt-4 grid grid-cols-3 gap-x-2.5 gap-y-4 sm:grid-cols-5">
+    <div className="mt-4 grid grid-cols-3 gap-x-2.5 gap-y-4">
       {items.map((item) => (
         <ContentCard
           key={item.id}
