@@ -2,8 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Mic, Upload, CheckCircle2, AlertCircle, Undo2, Image as ImageIcon, ListChecks, Megaphone } from "lucide-react";
+import { Mic, Upload, CheckCircle2, AlertCircle, Undo2 } from "lucide-react";
 import CommunityPanel from "@/components/studio/CommunityPanel";
+import StaffPanel from "@/components/studio/StaffPanel";
+import StudioTabBar from "@/components/studio/StudioTabBar";
+import { useViewer } from "@/components/ViewerProvider";
+import { AccessPolicy } from "@/lib/access";
+import { StudioTab } from "@/lib/staff";
 import ClipTimeline from "@/components/ClipTimeline";
 import ContentCoverPicker from "@/components/ContentCoverPicker";
 import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
@@ -21,15 +26,20 @@ import { FocusGuard, Segment, Timeline, UndoHistory } from "@/lib/timeline";
 
 export default function RecordPage() {
   const { addAudio, addAudioFromRow, updateAudioLocal, personalTracks } = useAppStore();
-  const { repos } = useChannel();
+  const { channel, repos } = useChannel();
 
   // 페이지 최상단 탭: 제작(녹음/편집/저장) / 콘텐츠 관리(업로드한 것 삭제·편집) /
   // 디자인(채널 꾸미기: 대표이미지·로고·기본 배경 이미지).
   // 채널 페이지의 "채널 꾸미기" 버튼은 ?tab=design으로 디자인 탭을 바로 엽니다.
+  // 운영자마다 맡은 기능의 탭만 보입니다(StudioTab, 소유자는 모두 + 운영자 관리).
+  const viewer = useViewer();
+  const visibleTabs = StudioTab.visibleFor({
+    canUse: (key) => AccessPolicy.canUseStudio(viewer, channel, key),
+    isOwner: AccessPolicy.canManageStaff(viewer, channel),
+  });
   const requestedTab = useSearchParams().get("tab");
-  const [mainTab, setMainTab] = useState(
-    ["content", "manage", "design", "community"].includes(requestedTab) ? requestedTab : "content"
-  );
+  const [selectedTab, setMainTab] = useState(requestedTab);
+  const mainTab = visibleTabs.some((t) => t.key === selectedTab) ? selectedTab : visibleTabs[0]?.key;
   const [activeTab, setActiveTab] = useState("record");
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
@@ -357,46 +367,15 @@ export default function RecordPage() {
         </p>
       </div>
 
-      <div className="flex gap-1 rounded-full bg-stone-100 p-1 text-sm">
-        <button
-          type="button"
-          onClick={() => setMainTab("content")}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 transition ${
-            mainTab === "content" ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
-          }`}
-        >
-          <Mic size={14} /> 제작
-        </button>
-        <button
-          type="button"
-          onClick={() => setMainTab("manage")}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 transition ${
-            mainTab === "manage" ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
-          }`}
-        >
-          <ListChecks size={14} /> 콘텐츠 관리
-        </button>
-        <button
-          type="button"
-          onClick={() => setMainTab("design")}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 transition ${
-            mainTab === "design" ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
-          }`}
-        >
-          <ImageIcon size={14} /> 디자인
-        </button>
-        <button
-          type="button"
-          onClick={() => setMainTab("community")}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 transition ${
-            mainTab === "community" ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
-          }`}
-        >
-          <Megaphone size={14} /> 공지
-        </button>
-      </div>
+      <StudioTabBar tabs={visibleTabs} active={mainTab} onSelect={setMainTab} />
 
-      {mainTab === "community" ? (
+      {visibleTabs.length === 0 ? (
+        <p className="rounded-2xl border border-stone-200 bg-white px-4 py-10 text-center text-sm text-stone-500">
+          아직 맡은 기능이 없어요. 채널 소유자에게 기능을 맡겨 달라고 요청해 주세요.
+        </p>
+      ) : mainTab === "staff" ? (
+        <StaffPanel />
+      ) : mainTab === "community" ? (
         <CommunityPanel />
       ) : mainTab === "design" ? (
         <DesignSkinPanel />

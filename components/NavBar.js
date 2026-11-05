@@ -5,27 +5,22 @@ import { usePathname } from "next/navigation";
 import { Home, Mic } from "lucide-react";
 import AccountMenu from "@/components/auth/AccountMenu";
 import { useChannel } from "@/components/ChannelProvider";
-import { useViewer } from "@/components/ViewerProvider";
-import { AccessPolicy } from "@/lib/access";
 import { useAppStore } from "@/lib/store";
 
-// 채널 안의 메뉴 — 실제 주소는 채널마다 /{채널주소}/… 로 붙습니다. 스튜디오는
-// 그 채널을 관리할 수 있는 사람에게만 보입니다.
+// 채널 안의 메뉴 — 실제 주소는 채널마다 /{채널주소}/… 로 붙습니다. 스튜디오 메뉴는
+// 누구에게나 보이고, 들어가면 스튜디오 레이아웃이 로그인·운영자 여부를 확인합니다
+// (로그인 안 했으면 로그인 화면 → 로그인 뒤 스튜디오로 돌아옴).
 // 콘텐츠 화면(배경이미지가 화면 전체에 깔리는 곳)에서는 "한 장의 그림" 같은 느낌을 위해
 // 투명한 아이콘(말풍선 모양 칩)만 남기고, 그 외 화면은 일반 흰색 내비게이션을 씁니다.
 const channelLinks = [
   { sub: "", label: "홈", icon: Home },
-  { sub: "studio", label: "스튜디오", icon: Mic, managersOnly: true },
+  { sub: "studio", label: "스튜디오", icon: Mic },
 ];
 
 export default function NavBar() {
   const pathname = usePathname();
   const { channel } = useChannel();
-  const viewer = useViewer();
-  const canManage = AccessPolicy.canManageChannel(viewer, channel);
-  const links = channelLinks
-    .filter((link) => !link.managersOnly || canManage)
-    .map((link) => ({ ...link, href: channel.path(link.sub) }));
+  const links = channelLinks.map((link) => ({ ...link, href: channel.path(link.sub) }));
 
   const isImmersive = useIsImmersiveContent(pathname);
   if (isImmersive) {

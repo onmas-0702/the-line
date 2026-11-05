@@ -1,0 +1,75 @@
+<!-- Supabase → Authentication → Email Templates → "Confirm signup"
+     제목(Subject): [은혜의 밤, 더 라인] 회원가입을 마무리해 주세요 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>은혜의 밤, 더 라인 — 회원가입 확인</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f5f2ec;">
+  <!-- 받은편지함 목록에 보이는 미리보기 문장 -->
+  <div style="display:none; max-height:0; overflow:hidden; color:#f5f2ec;">은혜의 밤, 더 라인에 오신 것을 환영합니다. 아래 버튼을 눌러 가입을 마무리해 주세요.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f2ec;">
+    <tr>
+      <td align="center" style="padding:48px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px; background-color:#fffdf9; border:1px solid #e7e0d4; border-radius:16px;">
+          <tr>
+            <td align="center" style="padding:44px 40px 8px 40px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" valign="middle" width="52" height="52" style="width:52px; height:52px; border-radius:26px; background-color:#b45309; color:#ffffff; font-family:'Noto Serif KR','Nanum Myeongjo',Georgia,serif; font-size:22px; font-weight:600;">은</td>
+                </tr>
+              </table>
+              <p style="margin:18px 0 0 0; font-family:'Noto Serif KR','Nanum Myeongjo',Georgia,serif; font-size:20px; letter-spacing:1px; color:#292524;">은혜의 밤, 더 라인</p>
+              <p style="margin:6px 0 0 0; font-family:Apple SD Gothic Neo,'Malgun Gothic',sans-serif; font-size:12px; letter-spacing:2px; color:#a8a29e;">짧은 은혜의 순간을 나누는 곳</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 40px 0 40px;">
+              <div style="height:1px; background-color:#ece6dc; line-height:1px; font-size:0;">&nbsp;</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 40px 0 40px; font-family:Apple SD Gothic Neo,'Malgun Gothic',sans-serif; color:#44403c; font-size:15px; line-height:1.8; word-break:keep-all;">
+              <p style="margin:0 0 14px 0; font-family:'Noto Serif KR','Nanum Myeongjo',Georgia,serif; font-size:17px; color:#292524;">함께해 주셔서 감사합니다.</p>
+              <p style="margin:0;">
+                <strong style="color:#292524;">{{ .Email }}</strong> 주소로 은혜의 밤, 더 라인 회원가입을 신청하셨습니다.
+                아래 버튼을 누르시면 가입이 마무리되고, 바로 로그인된 상태로 이어집니다.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:32px 40px 8px 40px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="border-radius:999px; background-color:#b45309;">
+                    <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block; padding:14px 36px; font-family:Apple SD Gothic Neo,'Malgun Gothic',sans-serif; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none; border-radius:999px;">가입 마무리하기</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 40px 0 40px; font-family:Apple SD Gothic Neo,'Malgun Gothic',sans-serif; color:#78716c; font-size:13px; line-height:1.7; word-break:keep-all;">
+              <p style="margin:0;">이 링크는 보안을 위해 일정 시간이 지나면 만료됩니다. 만료되었다면 회원가입 화면에서 다시 신청해 주세요.</p>
+              <p style="margin:12px 0 0 0;">직접 신청하신 적이 없다면 이 메일은 무시하셔도 괜찮습니다. 아무 일도 일어나지 않습니다.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 40px 40px 40px; font-family:Apple SD Gothic Neo,'Malgun Gothic',sans-serif; color:#a8a29e; font-size:12px; line-height:1.7;">
+              <div style="height:1px; background-color:#ece6dc; line-height:1px; font-size:0; margin-bottom:20px;">&nbsp;</div>
+              버튼이 눌리지 않으면 아래 주소를 복사해 브라우저에 붙여 넣어 주세요.<br>
+              <a href="{{ .ConfirmationURL }}" style="color:#b45309; word-break:break-all;">{{ .ConfirmationURL }}</a>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:20px 0 0 0; font-family:Apple SD Gothic Neo,'Malgun Gothic',sans-serif; font-size:11px; color:#a8a29e; text-align:center; line-height:1.7; word-break:keep-all;">
+          이 메일은 은혜의 밤, 더 라인 회원가입 신청에 따라 자동으로 발송되었습니다.<br>
+          <a href="{{ .SiteURL }}" style="color:#a8a29e;">{{ .SiteURL }}</a>
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

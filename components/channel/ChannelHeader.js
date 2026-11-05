@@ -69,6 +69,8 @@ export default function ChannelHeader({ contentCount }) {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
   const isManager = AccessPolicy.canManageChannel(viewer, channel);
+  // 로고·대표이미지·소개글 고치기는 "채널 디자인"을 맡은 운영자만.
+  const canDesign = AccessPolicy.canUseStudio(viewer, channel, "design");
 
   return (
     <section>
@@ -77,7 +79,7 @@ export default function ChannelHeader({ contentCount }) {
         className="relative aspect-[3/1] w-full overflow-hidden rounded-2xl bg-gradient-to-br from-amber-200 via-amber-100 to-stone-200 bg-cover bg-center"
         style={artwork.bannerUrl ? { backgroundImage: `url(${artwork.bannerUrl})` } : undefined}
       >
-        {isManager && <ImageEditOverlay slot={ChannelImageSlot.BANNER} className="bottom-2 right-2" />}
+        {canDesign && <ImageEditOverlay slot={ChannelImageSlot.BANNER} className="bottom-2 right-2" />}
       </div>
 
       <div className="mt-4 flex items-start gap-4">
@@ -91,7 +93,7 @@ export default function ChannelHeader({ contentCount }) {
               {channel.name.slice(0, 1)}
             </span>
           )}
-          {isManager && <ImageEditOverlay slot={ChannelImageSlot.COVER} compact className="bottom-1 right-1" />}
+          {canDesign && <ImageEditOverlay slot={ChannelImageSlot.COVER} compact className="bottom-1 right-1" />}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -118,9 +120,9 @@ export default function ChannelHeader({ contentCount }) {
                   {description}
                 </button>
               ) : (
-                <p className="text-sm text-stone-400">{isManager ? "채널 소개글을 입력해주세요." : ""}</p>
+                <p className="text-sm text-stone-400">{canDesign ? "채널 소개글을 입력해주세요." : ""}</p>
               )}
-              {isManager && (
+              {canDesign && (
                 <button
                   type="button"
                   onClick={() => setIsEditingDescription(true)}
@@ -144,12 +146,14 @@ export default function ChannelHeader({ contentCount }) {
             >
               <Clapperboard size={15} /> 스튜디오
             </Link>
+            {canDesign && (
             <Link
               href={channel.studioPath("design")}
               className="flex items-center gap-1.5 rounded-full bg-stone-100 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-200"
             >
               <Palette size={15} /> 채널 꾸미기
             </Link>
+            )}
           </>
         ) : viewer.isSubscriber ? (
           <span className="rounded-full bg-stone-100 px-5 py-2 text-sm font-medium text-stone-600">구독 중</span>

@@ -20,6 +20,21 @@
 | 구독자 | 플랫폼 유료 구독(월 5천·연 5만) | + 담아두기, My Page(운영자 공지·담아두기·감상일기·오픈채팅 참여) |
 | 채널운영자 | 채널 역할(owner/editor) | 그 채널의 스튜디오(녹음·편집·콘텐츠 관리·디자인·공지) |
 
+**채널 운영자(스태프)** — 소유자(owner)는 모든 기능과 운영자 관리를 합니다. 소유자는
+스튜디오 → **운영자** 탭에서 가입한 회원을 이메일로 찾아 공동 운영자(editor)로 지정하고,
+맡길 기능을 고릅니다(`lib/staff.js`의 `StudioPermission`, DB `0018_channel_staff.sql`).
+
+| 기능 | 할 수 있는 일 | 스튜디오 탭 |
+| --- | --- | --- |
+| 콘텐츠 제작 (`content`) | 녹음·업로드로 새 콘텐츠, 배경음악·배경이미지 올리기 | 제작 |
+| 콘텐츠 관리 (`manage`) | 올린 콘텐츠 정보·배경이미지 수정, 삭제 | 콘텐츠 관리 |
+| 채널 디자인 (`design`) | 로고·대표이미지·소개글·기본 배경 | 디자인 |
+| 공지·오픈채팅 (`community`) | 구독자 공지, 오픈채팅 링크 | 공지 |
+| (소유자 전용) | 운영자 지정·기능 변경·해제 | 운영자 |
+
+운영자는 맡은 기능의 탭만 보고, DB도 같은 규칙(`has_channel_permission`)으로 막습니다.
+운영자는 구독자 전용 기능(My Page 등)도 모두 씁니다.
+
 - **구독은 플랫폼 전체 단위**입니다(`member_subscriptions.kind = 'membership'`,
   `channel_id = null`). 나중에 채널별 구독을 열면 `channel_id`에 채널을 넣습니다.
 - **채널운영 요금제**(월 1만·연 10만, `kind = 'studio'`)는 요금제 행만 만들어 두고
@@ -121,6 +136,7 @@ channels ──< audios ──< comments
 | `lib/engagement.js` | 한줄평(`CommentDraft`/`CommentRepository`), 좋아요·담아두기(`AudioMarks`/`AudioMarkRepository`), 감상일기(`JournalDraft`/`JournalRepository`) |
 | `lib/community.js` | 운영자 공지(`NoticeRepository`), 오픈채팅(`CommunityInfo`/`ChannelCommunityRepository`) |
 | `lib/subscription.js` | `Plan`, `PlanRepository`, `PaymentGateway`(결제대행사 연결 틀), `SubscriptionTerms` |
+| `lib/staff.js` | `StudioPermission`(운영자 기능), `StaffMember`, `StaffInvite`, `ChannelStaffRepository`, `StudioTab`(탭별 필요 기능) |
 | `lib/myPage.js` | `MyPageMenu`(메뉴 등록), `SavedAudioQuery`, `JournalQuery`(검색) |
 
 **규칙**: 채널 안의 화면에서 Supabase를 부를 때는 반드시 `useChannel().repos`를
@@ -211,8 +227,11 @@ channels ──< audios ──< comments
    where c.slug = 'theline' and u.email = '운영자@이메일'
    on conflict (channel_id, user_id) do update set role = 'owner';
    ```
-5. 운영자 계정으로 스튜디오 저장이 되는지 확인한 뒤 `0017_member_write_policies.sql` 실행
-6. (결제 연동 전) 구독자를 직접 지급할 때:
+5. 운영자 계정으로 스튜디오 저장이 되는지 확인한 뒤 `0017_member_write_policies.sql`,
+   이어서 `0018_channel_staff.sql` 실행(기능별 권한·운영자 지정)
+6. 콘텐츠 제작자 등 함께 운영할 분은 먼저 회원가입 → 소유자가 스튜디오 → 운영자 탭에서
+   그분의 이메일로 지정하고 맡길 기능을 고르기
+7. (결제 연동 전) 구독자를 직접 지급할 때:
    ```sql
    insert into member_subscriptions (user_id, plan_code, kind, status, provider, current_period_end, note)
    select id, 'membership_monthly', 'membership', 'active', 'manual', now() + interval '1 month', '운영자 지급'
