@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Radio } from "lucide-react";
 import AccountMenu from "@/components/auth/AccountMenu";
 import FeedRow from "@/components/landing/FeedRow";
 import PlatformFooter from "@/components/landing/PlatformFooter";
@@ -152,7 +153,7 @@ export default function LandingPage() {
       <header className="px-4 pt-8">
         <h1 className="text-center text-2xl font-bold tracking-tight text-stone-900">{PLATFORM_TITLE}</h1>
         <div className="mt-4">
-          <AccountMenu variant="landing" />
+          <AccountMenu variant="landing" leading={[{ href: `/${ChannelSlug.DEFAULT}`, label: "내 채널로 가기", icon: Radio }]} />
         </div>
       </header>
 

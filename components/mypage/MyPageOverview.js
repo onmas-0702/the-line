@@ -44,8 +44,8 @@ export default function MyPageOverview() {
           return (
             <Link key={section.key} href={section.path} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-stone-50">
               <span>
-                <span className="block text-sm font-medium text-stone-800">{section.label}</span>
-                <span className="block text-xs text-stone-400">{gate.allowed ? section.description : "구독자 전용 메뉴예요."}</span>
+                <span className="block text-sm font-medium text-stone-800">{section.labelFor(viewer)}</span>
+                <span className="block text-xs text-stone-400">{gate.allowed ? section.descriptionFor(viewer) : "구독자 전용 메뉴예요."}</span>
               </span>
               <ChevronRight size={16} className="shrink-0 text-stone-300" />
             </Link>

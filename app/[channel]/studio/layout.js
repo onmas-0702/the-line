@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BackButton from "@/components/common/BackButton";
 import { notFound } from "next/navigation";
 import { resolveChannel } from "@/lib/channelLookup";
 import { PageGuard } from "@/lib/pageGuard";
@@ -25,5 +26,10 @@ export default async function StudioLayout({ children, params }) {
       </div>
     );
   }
-  return children;
+  return (
+    <div className="space-y-4">
+      <BackButton fallbackHref={channel.path()} />
+      {children}
+    </div>
+  );
 }

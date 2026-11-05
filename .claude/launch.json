@@ -19,9 +19,20 @@
         "next",
         "dev",
         "-p",
-        "3002"
+        "3001"
       ],
-      "port": 3002
+      "port": 3001
+    },
+    {
+      "name": "next-dev-3001",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "-p",
+        "3001"
+      ],
+      "port": 3001
     }
   ]
 }

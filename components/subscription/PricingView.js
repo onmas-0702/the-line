@@ -9,7 +9,7 @@ import { MyPageMenu } from "@/lib/myPage";
 import { PaymentGateway, Plan, SubscriptionPaths, SubscriptionStatus, SubscriptionTerms } from "@/lib/subscription";
 
 const BENEFITS = [
-  { icon: Megaphone, text: "운영자 공지를 My Page에서 바로 확인" },
+  { icon: Megaphone, text: "운영자 공지를 마이 페이지에서 바로 확인" },
   { icon: Bookmark, text: "좋아요·담아두기한 메시지를 모아 보고 검색" },
   { icon: NotebookPen, text: "메시지마다 나만의 감상일기 기록" },
   { icon: MessageCircle, text: "카카오톡 오픈채팅 커뮤니티 참여" },
@@ -51,7 +51,7 @@ export default function PricingView({ viewer: viewerData, plans: planData }) {
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm text-emerald-800">
           이미 구독 중이에요 ({new SubscriptionStatus(viewer.subscription).label}).{" "}
           <Link href={MyPageMenu.BASE_PATH} className="font-medium underline">
-            My Page로 가기
+            마이 페이지로 가기
           </Link>
         </div>
       ) : (

@@ -1,10 +1,11 @@
 "use client";
 
-// My Page의 틀 — 위쪽 메뉴(가로로 넘기는 탭)와 본문. 메뉴는 MyPageMenu.SECTIONS를 그대로 그립니다.
+// 마이 페이지의 틀 — 위쪽 메뉴(가로로 넘기는 탭)와 본문. 메뉴는 MyPageMenu.SECTIONS를 그대로 그립니다.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bookmark, Lock, Megaphone, MessageCircle, NotebookPen, UserRound } from "lucide-react";
+import BackButton from "@/components/common/BackButton";
 import { useViewer } from "@/components/ViewerProvider";
 import { MemberTier } from "@/lib/access";
 import { MyPageMenu } from "@/lib/myPage";
@@ -19,7 +20,7 @@ export default function MyPageShell({ children }) {
     { key: "home", label: "내 정보", path: MyPageMenu.BASE_PATH, icon: UserRound, locked: false },
     ...MyPageMenu.SECTIONS.map((section) => ({
       key: section.key,
-      label: section.label,
+      label: section.labelFor(viewer),
       path: section.path,
       icon: ICONS[section.key] || UserRound,
       locked: !section.gateFor(viewer).allowed,
@@ -28,8 +29,9 @@ export default function MyPageShell({ children }) {
 
   return (
     <div className="space-y-5">
+      <BackButton fallbackHref="/" />
       <div>
-        <h1 className="text-lg font-semibold text-stone-900">My Page</h1>
+        <h1 className="text-lg font-semibold text-stone-900">{MyPageMenu.TITLE}</h1>
         <p className="mt-0.5 text-sm text-stone-500">
           {viewer.displayName}님 · {viewer.isChannelStaff ? "채널 운영자" : MemberTier.label(viewer.tier)}
         </p>

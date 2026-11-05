@@ -31,7 +31,7 @@ export default function LoginForm({ next, initialError = "", notice = "" }) {
   return (
     <AuthCard
       title="로그인"
-      subtitle="로그인하면 댓글을 남기고, 구독하면 My Page를 쓸 수 있어요."
+      subtitle="로그인하면 댓글을 남기고, 구독하면 마이 페이지를 쓸 수 있어요."
       footer={
         <>
           아직 회원이 아니신가요?{" "}

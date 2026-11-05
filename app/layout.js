@@ -1,4 +1,5 @@
 import "./globals.css";
+import { NavigationTracker } from "@/components/common/BackButton";
 import InstallBanner from "@/components/InstallBanner";
 import ViewerProvider from "@/components/ViewerProvider";
 import { PLATFORM_NAME } from "@/lib/mockData";
@@ -32,6 +33,7 @@ export default async function RootLayout({ children }) {
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-stone-50 text-stone-800">
         <ViewerProvider viewer={viewer.toJSON()}>{children}</ViewerProvider>
+        <NavigationTracker />
         <InstallBanner />
       </body>
     </html>

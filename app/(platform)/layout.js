@@ -3,7 +3,7 @@ import AccountMenu from "@/components/auth/AccountMenu";
 import { ChannelSlug } from "@/lib/channel";
 import { PLATFORM_NAME } from "@/lib/mockData";
 
-// 특정 채널에 속하지 않는 플랫폼 공용 화면(로그인·회원가입, 구독 안내, My Page, 이후
+// 특정 채널에 속하지 않는 플랫폼 공용 화면(로그인·회원가입, 구독 안내, 마이 페이지, 이후
 // 채널 개설 신청·운영자 관리)의 레이아웃입니다. 이 폴더 아래의 경로 이름은 채널 주소로 쓸 수
 // 없도록 lib/channel.js의 ChannelSlug.RESERVED에 함께 등록해야 합니다.
 export default function PlatformLayout({ children }) {

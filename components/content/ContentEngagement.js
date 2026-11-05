@@ -157,7 +157,7 @@ function JournalPanel({ item, tone }) {
   return (
     <div className={`rounded-2xl p-4 text-left ${tone.panel}`}>
       <p className={`text-sm font-semibold ${tone.text}`}>이 메시지를 듣고</p>
-      <p className={`mt-0.5 text-xs ${tone.muted}`}>나만 볼 수 있어요. My Page → 감상일기에서 다시 볼 수 있어요.</p>
+      <p className={`mt-0.5 text-xs ${tone.muted}`}>나만 볼 수 있어요. 마이 페이지 → 감상일기에서 다시 볼 수 있어요.</p>
       <textarea
         value={draft.body}
         onChange={(e) => setDraft(new JournalDraft(e.target.value))}

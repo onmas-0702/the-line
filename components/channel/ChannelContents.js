@@ -83,20 +83,20 @@ function ContentCard({ item, href, thumbnailUrl }) {
     <article>
       <Link href={href} className="group block" aria-label={`${item.title} 듣기`}>
         <div className="relative">
-          <ContentThumbnail item={item} imageUrl={thumbnailUrl} className="aspect-square w-full transition group-hover:brightness-95" />
-          <span className="absolute bottom-2.5 right-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-white text-amber-800 shadow">
-            <Play size={15} className="ml-0.5" />
+          <ContentThumbnail item={item} imageUrl={thumbnailUrl} size="sm" className="aspect-square w-full transition group-hover:brightness-95" />
+          <span className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-amber-800 shadow">
+            <Play size={11} className="ml-px" />
           </span>
         </div>
-        <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-stone-900 group-hover:text-amber-800">
+        <h3 className="mt-1.5 line-clamp-2 text-xs font-semibold leading-snug text-stone-900 group-hover:text-amber-800">
           {item.title}
         </h3>
-        <p className="mt-0.5 truncate text-xs text-amber-700">
+        <p className="mt-0.5 truncate text-[11px] text-amber-700">
           {item.pastorName}
           {item.scriptureReference ? ` · ${item.scriptureReference}` : ""}
         </p>
         <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-400">
-          <Headphones size={11} /> 조회수 {item.plays || 0}회 · {item.date}
+          <Headphones size={11} /> {item.plays || 0}회 · {item.date}
         </p>
       </Link>
     </article>
@@ -113,7 +113,7 @@ export function ContentGrid({ items, artwork, channel, isSearching }) {
     );
   }
   return (
-    <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3">
+    <div className="mt-4 grid grid-cols-3 gap-x-2.5 gap-y-4 sm:grid-cols-5">
       {items.map((item) => (
         <ContentCard
           key={item.id}

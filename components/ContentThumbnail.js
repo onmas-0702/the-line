@@ -16,19 +16,26 @@ export function coverTone(name = "") {
   return COVER_TONES[hash % COVER_TONES.length];
 }
 
-export default function ContentThumbnail({ item, imageUrl, rank = null, showDuration = true, className = "" }) {
+// 크기별 모서리·여백·순위·재생 길이 글자 — 작은 카드에서도 비율이 맞게.
+const SIZES = {
+  md: { box: "rounded-2xl p-2.5", rank: "left-3 top-2 text-2xl", duration: "px-2 py-0.5 text-[11px]" },
+  sm: { box: "rounded-xl p-1.5", rank: "left-2 top-1 text-base", duration: "px-1.5 py-px text-[10px]" },
+};
+
+export default function ContentThumbnail({ item, imageUrl, rank = null, showDuration = true, size = "md", className = "" }) {
+  const s = SIZES[size] || SIZES.md;
   return (
     <div
-      className={`relative flex items-end overflow-hidden rounded-2xl bg-gradient-to-br bg-cover bg-center p-2.5 ${coverTone(item.pastorName)} ${className}`}
+      className={`relative flex items-end overflow-hidden bg-gradient-to-br bg-cover bg-center ${s.box} ${coverTone(item.pastorName)} ${className}`}
       style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}
     >
       {imageUrl && (
         // 표지 이미지 위에서도 순위·재생 길이가 읽히도록 위아래만 살짝 어둡게
         <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/15" />
       )}
-      {rank && <span className="absolute left-3 top-2 text-2xl font-bold text-white/90 drop-shadow">{rank}</span>}
+      {rank && <span className={`absolute font-bold text-white/90 drop-shadow ${s.rank}`}>{rank}</span>}
       {showDuration && (
-        <span className="relative rounded-full bg-black/35 px-2 py-0.5 text-[11px] tabular-nums text-white">
+        <span className={`relative rounded-full bg-black/35 tabular-nums text-white ${s.duration}`}>
           {item.duration}
         </span>
       )}

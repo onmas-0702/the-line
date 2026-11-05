@@ -1,6 +1,6 @@
 "use client";
 
-// My Page 섹션들이 함께 쓰는 것 — 채널에 묶이지 않은(플랫폼 전체) 저장소와, 불러오기 상태.
+// 마이 페이지 섹션들이 함께 쓰는 것 — 채널에 묶이지 않은(플랫폼 전체) 저장소와, 불러오기 상태.
 
 import { useEffect, useMemo, useState } from "react";
 import { ChannelCommunityRepository, NoticeRepository } from "@/lib/community";

@@ -12,29 +12,29 @@ import { Headphones, Pause, Play } from "lucide-react";
 function FeedCard({ item, rank, isPlaying, onTogglePlay }) {
   const playable = Boolean(item.previewUrl);
   return (
-    <article className="group w-[40%] max-w-[168px] shrink-0 snap-start sm:w-[168px]">
+    <article className="group w-[26%] max-w-[100px] shrink-0 snap-start sm:w-[100px]">
       <div className="relative aspect-square w-full">
         <Link href={item.href} tabIndex={-1} aria-hidden className="absolute inset-0 transition group-hover:brightness-95">
-          <ContentThumbnail item={item} imageUrl={item.thumbnailUrl} rank={rank} className="h-full w-full" />
+          <ContentThumbnail item={item} imageUrl={item.thumbnailUrl} rank={rank} size="sm" className="h-full w-full" />
         </Link>
         <button
           type="button"
           onClick={() => onTogglePlay(item)}
           disabled={!playable}
           title={playable ? "바로 듣기" : "샘플 데이터입니다 (재생 준비중)"}
-          className={`absolute bottom-2.5 right-2.5 flex h-9 w-9 items-center justify-center rounded-full shadow transition disabled:cursor-not-allowed ${
+          className={`absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full shadow transition disabled:cursor-not-allowed ${
             playable ? "bg-white text-amber-800 hover:scale-105" : "bg-white/60 text-stone-400"
           }`}
           aria-label={isPlaying ? `${item.title} 정지` : `${item.title} 바로 듣기`}
         >
-          {isPlaying ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
+          {isPlaying ? <Pause size={11} /> : <Play size={11} className="ml-px" />}
         </button>
       </div>
       <Link href={item.href} className="block">
-        <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-stone-900 group-hover:text-amber-800">
+        <h3 className="mt-1.5 line-clamp-2 text-xs font-semibold leading-snug text-stone-900 group-hover:text-amber-800">
           {item.title}
         </h3>
-        <p className="mt-0.5 truncate text-xs text-amber-700">
+        <p className="mt-0.5 truncate text-[11px] text-amber-700">
           {item.pastorName}
           {item.church ? ` · ${item.church}` : ""}
         </p>
@@ -56,7 +56,7 @@ export default function FeedRow({ title, subtitle, items, ranked = false, playin
       {items.length === 0 ? (
         <p className="mx-4 mt-3 rounded-xl bg-stone-100 px-4 py-6 text-center text-xs text-stone-400">{emptyText}</p>
       ) : (
-        <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto scroll-px-4 px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {items.map((item, i) => (
             <FeedCard
               key={item.id}
