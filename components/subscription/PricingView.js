@@ -13,7 +13,7 @@ const BENEFITS = [
   { icon: Bookmark, text: "좋아요·담아두기한 메시지를 모아 보고 검색" },
   { icon: NotebookPen, text: "메시지마다 나만의 감상일기 기록" },
   { icon: MessageCircle, text: "카카오톡 오픈채팅 커뮤니티 참여" },
-  { icon: BookOpen, text: "모든 메시지 듣기·한줄평은 무료회원도 그대로" },
+  { icon: BookOpen, text: "모든 메시지 듣기·댓글은 무료회원도 그대로" },
 ];
 
 export default function PricingView({ viewer: viewerData, plans: planData }) {

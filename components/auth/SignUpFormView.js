@@ -51,7 +51,7 @@ export default function SignUpFormView({ next }) {
   return (
     <AuthCard
       title="회원가입"
-      subtitle="가입은 무료예요. 콘텐츠에 한줄평과 이모지를 남길 수 있어요."
+      subtitle="가입은 무료예요. 콘텐츠에 댓글과 하트를 남길 수 있어요."
       footer={
         <>
           이미 회원이신가요?{" "}

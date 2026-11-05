@@ -14,10 +14,9 @@ import { useChannel } from "@/components/ChannelProvider";
 import ContentEngagement from "@/components/content/ContentEngagement";
 import { useContentPlayer } from "@/components/content/useContentPlayer";
 import { TimeFormat } from "@/lib/audio";
-import { ChannelContentQuery } from "@/lib/channelProfile";
+import { NextContent } from "@/lib/channelProfile";
 import { useAppStore } from "@/lib/store";
 
-const OTHER_CONTENTS_COUNT = 10;
 
 export default function ContentPage() {
   const { contentId } = useParams();
@@ -26,10 +25,11 @@ export default function ContentPage() {
   const player = useContentPlayer();
 
   const item = audios.find((a) => a.id === contentId) || null;
-  const others = useMemo(
-    () => new ChannelContentQuery().apply(audios).filter((a) => a.id !== contentId).slice(0, OTHER_CONTENTS_COUNT),
-    [audios, contentId]
-  );
+  // 아래에는 다음 콘텐츠 하나만 보여줍니다(NextContent).
+  const others = useMemo(() => {
+    const next = new NextContent().after(audios, contentId);
+    return next ? [next] : [];
+  }, [audios, contentId]);
 
   if (!item) {
     return (

@@ -12,7 +12,7 @@ import { Headphones, Pause, Play } from "lucide-react";
 function FeedCard({ item, rank, isPlaying, onTogglePlay }) {
   const playable = Boolean(item.previewUrl);
   return (
-    <article className="group w-[calc((100%-1.25rem)/3)] shrink-0 snap-start">
+    <article className="group w-[calc((100%-1.25rem)/3)] shrink-0 snap-start sm:w-[100px]">
       <div className="relative aspect-square w-full">
         <Link href={item.href} tabIndex={-1} aria-hidden className="absolute inset-0 transition group-hover:brightness-95">
           <ContentThumbnail item={item} imageUrl={item.thumbnailUrl} rank={rank} size="sm" className="h-full w-full" />

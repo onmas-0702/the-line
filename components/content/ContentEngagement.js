@@ -1,16 +1,16 @@
 "use client";
 
-// 콘텐츠 화면 아래쪽 — 좋아요·담아두기·감상일기 버튼과 한줄평(이모지) 댓글.
+// 콘텐츠 화면 아래쪽 — 좋아요·담아두기·감상일기 버튼과 댓글(이모지) 댓글.
 // 누가 무엇을 할 수 있는지는 FeatureGate/AccessPolicy(lib/access.js)가 정하고,
 // 저장은 채널 저장소(useChannel().repos)가 합니다.
 
 import { useEffect, useState } from "react";
-import { Bookmark, Heart, NotebookPen, Send, Trash2 } from "lucide-react";
+import { Bookmark, ChevronDown, Heart, MessageCircle, NotebookPen, Send, Trash2 } from "lucide-react";
 import { useChannel } from "@/components/ChannelProvider";
 import GatePrompt from "@/components/common/GatePrompt";
 import { useViewer } from "@/components/ViewerProvider";
 import { AccessPolicy, FeatureGate } from "@/lib/access";
-import { AudioMarkKind, AudioMarks, CommentDraft, JournalDraft } from "@/lib/engagement";
+import { AudioMarkKind, AudioMarks, CommentDraft, CommentText, JournalDraft } from "@/lib/engagement";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 const Feature = FeatureGate.Feature;
@@ -195,6 +195,7 @@ function CommentSection({ item, tone }) {
   const viewer = useViewer();
   const { channel, repos } = useChannel();
   const gate = FeatureGate.check(viewer, Feature.COMMENT);
+  const [open, setOpen] = useState(false); // 펼침식 — 평소엔 작은 '댓글' 버튼만
   const [comments, setComments] = useState([]);
   const [draft, setDraft] = useState(new CommentDraft());
   const [error, setError] = useState("");
@@ -227,71 +228,98 @@ function CommentSection({ item, tone }) {
   }
 
   return (
-    <section className={`rounded-2xl p-4 text-left ${tone.panel}`}>
-      <h2 className={`text-sm font-semibold ${tone.text}`}>
-        한줄평 <span className={`font-normal ${tone.muted}`}>{comments.length || ""}</span>
-      </h2>
+    <section className="flex flex-col items-center">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-medium tracking-tight transition ${
+          tone.isImmersive ? "border-white/40 text-white hover:bg-white/10" : "border-stone-300 text-stone-600 hover:border-stone-400"
+        }`}
+      >
+        <MessageCircle size={15} strokeWidth={1.5} aria-hidden />
+        댓글{comments.length > 0 && <span className={tone.muted}>{comments.length}</span>}
+        <ChevronDown size={14} strokeWidth={1.5} aria-hidden className={`transition ${open ? "rotate-180" : ""}`} />
+      </button>
 
-      {gate.allowed ? (
-        <form onSubmit={submit} className="mt-3">
-          <div className="flex flex-wrap gap-1">
-            {CommentDraft.QUICK_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => setDraft(draft.withEmoji(emoji))}
-                className={`rounded-full px-2 py-1 text-base transition ${tone.chip(false)}`}
-                aria-label={`${emoji} 넣기`}
-              >
-                {emoji}
-              </button>
+      {open && (
+        <div className={`mt-3 w-full rounded-2xl p-4 text-left ${tone.panel}`}>
+          {gate.allowed ? (
+            <form onSubmit={submit}>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDraft(draft.withHeart())}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition ${
+                    tone.isImmersive ? "border-white/30 text-white hover:bg-white/10" : "border-stone-300 text-rose-500 hover:bg-rose-50"
+                  }`}
+                  aria-label="하트 넣기"
+                >
+                  <Heart size={16} strokeWidth={1.5} />
+                </button>
+                <input
+                  value={draft.body}
+                  onChange={(e) => setDraft(CommentDraft.fromInput(e.target.value))}
+                  placeholder={`댓글 (${CommentDraft.MAX_LENGTH}자까지)`}
+                  className={`min-w-0 flex-1 rounded-full border px-3.5 py-2 text-sm outline-none ${tone.input}`}
+                />
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-700 text-white transition hover:bg-amber-800 disabled:opacity-60"
+                  aria-label="남기기"
+                >
+                  <Send size={15} strokeWidth={1.5} />
+                </button>
+              </div>
+              <p className={`mt-1 text-right text-[11px] ${tone.muted}`}>
+                {draft.length}/{CommentDraft.MAX_LENGTH}
+              </p>
+              {error && <p className="text-xs text-red-400">{error}</p>}
+            </form>
+          ) : (
+            <GatePrompt gate={gate} action="댓글 남기기" tone={tone.isImmersive ? "dark" : "light"} />
+          )}
+
+          <ul className="mt-3 space-y-2.5">
+            {comments.map((comment) => (
+              <li key={comment.id} className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className={`text-xs ${tone.muted}`}>
+                    <span className={`font-medium ${tone.text}`}>{comment.authorName}</span> · {comment.relativeTime}
+                  </p>
+                  <p className={`mt-0.5 break-words text-sm ${tone.text}`}>
+                    <CommentBody body={comment.body} isImmersive={tone.isImmersive} />
+                  </p>
+                </div>
+                {AccessPolicy.canDeleteComment(viewer, channel, comment) && (
+                  <button type="button" onClick={() => remove(comment)} className={`shrink-0 p-1 ${tone.muted}`} aria-label="지우기">
+                    <Trash2 size={13} strokeWidth={1.5} />
+                  </button>
+                )}
+              </li>
             ))}
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <input
-              value={draft.body}
-              onChange={(e) => setDraft(new CommentDraft(e.target.value))}
-              placeholder="한줄평이나 이모지를 남겨주세요"
-              className={`min-w-0 flex-1 rounded-full border px-3.5 py-2 text-sm outline-none ${tone.input}`}
-            />
-            <button
-              type="submit"
-              disabled={busy}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-700 text-white transition hover:bg-amber-800 disabled:opacity-60"
-              aria-label="남기기"
-            >
-              <Send size={15} />
-            </button>
-          </div>
-          <p className={`mt-1 text-right text-[11px] ${tone.muted}`}>
-            {draft.length}/{CommentDraft.MAX_LENGTH}
-          </p>
-          {error && <p className="text-xs text-red-400">{error}</p>}
-        </form>
-      ) : (
-        <div className="mt-2">
-          <GatePrompt gate={gate} action="한줄평 남기기" tone={tone.isImmersive ? "dark" : "light"} />
+            {comments.length === 0 && <li className={`text-xs ${tone.muted}`}>첫 댓글을 남겨주세요.</li>}
+          </ul>
         </div>
       )}
-
-      <ul className="mt-3 space-y-2.5">
-        {comments.map((comment) => (
-          <li key={comment.id} className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className={`text-xs ${tone.muted}`}>
-                <span className={`font-medium ${tone.text}`}>{comment.authorName}</span> · {comment.relativeTime}
-              </p>
-              <p className={`mt-0.5 break-words text-sm ${tone.text}`}>{comment.body}</p>
-            </div>
-            {AccessPolicy.canDeleteComment(viewer, channel, comment) && (
-              <button type="button" onClick={() => remove(comment)} className={`shrink-0 p-1 ${tone.muted}`} aria-label="지우기">
-                <Trash2 size={13} />
-              </button>
-            )}
-          </li>
-        ))}
-        {comments.length === 0 && <li className={`text-xs ${tone.muted}`}>첫 한줄평을 남겨주세요.</li>}
-      </ul>
     </section>
+  );
+}
+
+/** 댓글 본문 — 하트 글자는 가는 선 하트 그림으로. */
+function CommentBody({ body, isImmersive }) {
+  return CommentText.segments(body).map((part, i) =>
+    part.type === "heart" ? (
+      <Heart
+        key={i}
+        size={14}
+        strokeWidth={1.5}
+        aria-label="하트"
+        className={`mx-px inline-block align-[-2px] ${isImmersive ? "text-white" : "text-rose-500"}`}
+      />
+    ) : (
+      <span key={i}>{part.value}</span>
+    )
   );
 }

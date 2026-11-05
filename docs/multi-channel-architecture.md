@@ -16,7 +16,7 @@
 | 구분 | 조건 | 할 수 있는 것 |
 | --- | --- | --- |
 | 방문자 | 로그인 안 함 | 모든 콘텐츠 듣기 |
-| 회원(비구독자) | 무료 가입 | + 한줄평·이모지 댓글(100자), 좋아요 |
+| 회원(비구독자) | 무료 가입 | + 댓글(하트)(100자), 좋아요 |
 | 구독자 | 플랫폼 유료 구독(월 5천·연 5만) | + 담아두기, My Page(운영자 공지·담아두기·감상일기·오픈채팅 참여) |
 | 채널운영자 | 채널 역할(owner/editor) | 그 채널의 스튜디오(녹음·편집·콘텐츠 관리·디자인·공지) |
 
@@ -63,7 +63,7 @@
 | --- | --- | --- |
 | `/` | 플랫폼 메인(최신·많이 들은·자주 듣는 메신저) | ✅ |
 | `/{채널주소}` | 채널 홈 | ✅ |
-| `/{채널주소}/content/{콘텐츠 id}` | 콘텐츠 화면(재생 + 좋아요·담아두기·감상일기·한줄평) | ✅ |
+| `/{채널주소}/content/{콘텐츠 id}` | 콘텐츠 화면(재생 + 좋아요·담아두기·감상일기·댓글) | ✅ |
 | `/{채널주소}/studio` | 스튜디오 — 채널 운영자만 | ✅ |
 | `/{채널주소}/record`, `/record` | 예전 주소 → 스튜디오로 이동 | ✅ |
 | `/login`, `/signup`, `/auth/…`, `/logout` | 로그인·가입·비밀번호 재설정 | ✅ (이메일) |
@@ -133,7 +133,7 @@ channels ──< audios ──< comments
 | `lib/supabaseServer.js` | `ServerSupabase`(요청별 세션 클라이언트), `ServerViewer.current()`, `PreviewAdminFlag` |
 | `lib/authProxy.js`, `proxy.js` | 매 요청 로그인 세션 갱신(Next 16의 proxy = 예전 middleware) |
 | `lib/pageGuard.js` | `PageGuard` — 로그인·채널 운영자 확인 후 이동 |
-| `lib/engagement.js` | 한줄평(`CommentDraft`/`CommentRepository`), 좋아요·담아두기(`AudioMarks`/`AudioMarkRepository`), 감상일기(`JournalDraft`/`JournalRepository`) |
+| `lib/engagement.js` | 댓글(`CommentDraft`/`CommentRepository`), 좋아요·담아두기(`AudioMarks`/`AudioMarkRepository`), 감상일기(`JournalDraft`/`JournalRepository`) |
 | `lib/community.js` | 운영자 공지(`NoticeRepository`), 오픈채팅(`CommunityInfo`/`ChannelCommunityRepository`) |
 | `lib/subscription.js` | `Plan`, `PlanRepository`, `PaymentGateway`(결제대행사 연결 틀), `SubscriptionTerms` |
 | `lib/staff.js` | `StudioPermission`(운영자 기능), `StaffMember`, `StaffInvite`, `ChannelStaffRepository`, `StudioTab`(탭별 필요 기능) |
@@ -205,7 +205,7 @@ channels ──< audios ──< comments
 1. **회원가입·로그인** — 이메일+비밀번호, 이메일 인증, 비밀번호 재설정. Google·카카오는
    Supabase에서 켠 뒤 `NEXT_PUBLIC_AUTH_PROVIDERS=google,kakao`를 넣으면 버튼이 보입니다.
    스튜디오(`/{채널}/studio`)는 채널 운영자만 들어갈 수 있습니다.
-2. **한줄평·이모지 댓글**, 좋아요·담아두기·감상일기 버튼(콘텐츠 화면).
+2. **댓글(하트)**, 좋아요·담아두기·감상일기 버튼(콘텐츠 화면).
 3. **쓰기 권한 좁히기(RLS)** — `0017_member_write_policies.sql`.
 4. **유료 구독 틀** — 요금제, 구독 안내 화면, 결제 전 고지. 실제 카드 결제는
    `PaymentGateway`의 하위 클래스(예: 토스페이먼츠 정기결제)를 사업자등록·PG 계약 후 추가합니다.
