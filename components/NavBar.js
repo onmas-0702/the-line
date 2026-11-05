@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Mic, LogIn, UserPlus } from "lucide-react";
+import { Home, Mic } from "lucide-react";
+import AccountMenu from "@/components/auth/AccountMenu";
 import { useChannel } from "@/components/ChannelProvider";
 import { useViewer } from "@/components/ViewerProvider";
 import { AccessPolicy } from "@/lib/access";
 import { useAppStore } from "@/lib/store";
 
-// 채널 안의 메뉴 — 실제 주소는 채널마다 /{채널주소}/… 로 붙습니다. 제작/관리는
+// 채널 안의 메뉴 — 실제 주소는 채널마다 /{채널주소}/… 로 붙습니다. 스튜디오는
 // 그 채널을 관리할 수 있는 사람에게만 보입니다.
 // 콘텐츠 화면(배경이미지가 화면 전체에 깔리는 곳)에서는 "한 장의 그림" 같은 느낌을 위해
 // 투명한 아이콘(말풍선 모양 칩)만 남기고, 그 외 화면은 일반 흰색 내비게이션을 씁니다.
 const channelLinks = [
   { sub: "", label: "홈", icon: Home },
-  { sub: "record", label: "제작/관리", icon: Mic, managersOnly: true },
+  { sub: "studio", label: "스튜디오", icon: Mic, managersOnly: true },
 ];
 
 export default function NavBar() {
@@ -61,29 +62,14 @@ export default function NavBar() {
                 </Link>
               );
             })}
-            <Link
-              href="/login"
-              className={`ml-1 rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                pathname === "/login"
-                  ? "border-amber-700 text-amber-700"
-                  : "border-stone-300 text-stone-500 hover:bg-stone-100"
-              }`}
-            >
-              로그인
-            </Link>
+            <div className="ml-1">
+              <AccountMenu variant="nav" />
+            </div>
           </nav>
 
-          <Link
-            href="/login"
-            className={`flex h-9 w-9 items-center justify-center rounded-full border sm:hidden ${
-              pathname === "/login"
-                ? "border-amber-700 text-amber-700"
-                : "border-stone-300 text-stone-500"
-            }`}
-            aria-label="로그인"
-          >
-            <LogIn size={16} />
-          </Link>
+          <div className="sm:hidden">
+            <AccountMenu variant="navIcon" />
+          </div>
         </div>
       </header>
 
@@ -131,14 +117,7 @@ function ImmersiveNav({ channel, links, pathname }) {
           <Link href={channel.path()} className={`${CHIP} h-8 w-8 text-sm font-semibold`} aria-label={`${channel.name} 채널로`}>
             은
           </Link>
-          <div className="flex items-center gap-1.5">
-            <Link href="/login" className={`${CHIP} h-9 w-9`} aria-label="로그인">
-              <LogIn size={16} />
-            </Link>
-            <Link href="/signup" className={`${CHIP} h-9 w-9`} aria-label="회원가입">
-              <UserPlus size={16} />
-            </Link>
-          </div>
+          <AccountMenu variant="chip" />
         </div>
       </header>
 

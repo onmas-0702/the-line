@@ -7,6 +7,8 @@
 import { createContext, useContext, useMemo } from "react";
 import { AudioRepository, BackgroundTrackRepository } from "@/lib/audioStorage";
 import { Channel, ChannelRepository } from "@/lib/channel";
+import { ChannelCommunityRepository, NoticeRepository } from "@/lib/community";
+import { AudioMarkRepository, CommentRepository, JournalRepository } from "@/lib/engagement";
 import { LibraryRepository } from "@/lib/library";
 import { SiteSettingsRepository } from "@/lib/siteSettings";
 
@@ -24,6 +26,11 @@ export default function ChannelProvider({ channel: channelData, children }) {
         siteSettings: new SiteSettingsRepository(scope),
         channels: new ChannelRepository(),
         library: new LibraryRepository(scope),
+        comments: new CommentRepository(scope),
+        marks: new AudioMarkRepository(scope),
+        journal: new JournalRepository(scope),
+        notices: new NoticeRepository(scope),
+        community: new ChannelCommunityRepository(scope),
       },
     };
     // 채널이 바뀔 때만 다시 만듭니다(같은 채널 안에서 이동할 땐 그대로 유지).

@@ -2,7 +2,7 @@
 
 // 채널 페이지 상단 — 유튜브 채널처럼 맨 위에 대표이미지(배너), 그 아래 네모 로고와
 // 채널 이름·구독자 정보·소개글, 그리고 버튼 줄. 관리자에게만 이미지 교체 버튼과
-// "콘텐츠 제작·관리" 버튼이 보입니다(판단은 AccessPolicy).
+// "스튜디오" 버튼이 보입니다(판단은 AccessPolicy).
 
 import Link from "next/link";
 import { useState } from "react";
@@ -10,6 +10,7 @@ import { Check, Clapperboard, Palette, Pencil, X } from "lucide-react";
 import { ImageEditOverlay } from "@/components/channel/ChannelImageEditor";
 import { useChannel } from "@/components/ChannelProvider";
 import { useViewer } from "@/components/ViewerProvider";
+import { SubscriptionPaths } from "@/lib/subscription";
 import { AccessPolicy } from "@/lib/access";
 import { ChannelImageSlot } from "@/lib/channelProfile";
 import { useAppStore } from "@/lib/store";
@@ -138,29 +139,23 @@ export default function ChannelHeader({ contentCount }) {
         {isManager ? (
           <>
             <Link
-              href={channel.path("record")}
+              href={channel.studioPath()}
               className="flex items-center gap-1.5 rounded-full bg-amber-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
             >
-              <Clapperboard size={15} /> 콘텐츠 제작·관리
+              <Clapperboard size={15} /> 스튜디오
             </Link>
             <Link
-              href={`${channel.path("record")}?tab=design`}
+              href={channel.studioPath("design")}
               className="flex items-center gap-1.5 rounded-full bg-stone-100 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-200"
             >
               <Palette size={15} /> 채널 꾸미기
             </Link>
           </>
-        ) : AccessPolicy.canSubscribe(viewer) ? (
-          <button
-            type="button"
-            className="rounded-full bg-stone-900 px-5 py-2 text-sm font-medium text-white"
-            title="구독 기능은 로그인 연동 후 제공됩니다"
-          >
-            구독
-          </button>
+        ) : viewer.isSubscriber ? (
+          <span className="rounded-full bg-stone-100 px-5 py-2 text-sm font-medium text-stone-600">구독 중</span>
         ) : (
           <Link
-            href="/signup"
+            href={SubscriptionPaths.PRICING}
             className="rounded-full bg-stone-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
           >
             구독

@@ -1,11 +1,26 @@
 import { redirect } from "next/navigation";
-import { ChannelSlug } from "@/lib/channel";
+import LoginForm from "@/components/auth/LoginForm";
+import { SafeRedirect } from "@/lib/auth";
+import { ServerViewer } from "@/lib/supabaseServer";
 
-// ⚠️ 임시 — 회원가입·로그인(Supabase Auth)을 붙이기 전까지, 사이트의 모든 "로그인" 버튼은
-// 운영자가 바로 기본 채널('은혜의 밤, 더 라인')의 제작/관리 화면으로 들어가는 입구로 씁니다.
-// 로그인 기능을 만들 때 이 파일을 실제 로그인 화면으로 바꾸고, 제작/관리 화면은
-// AccessPolicy.canManageChannel로 막아야 합니다(지금은 주소를 아는 누구나 들어갈 수 있음).
-// 예전 로그인 와이어프레임 화면은 git 기록(커밋 a9f51b9의 이 파일)에 있습니다.
-export default function LoginPage() {
-  redirect(`/${ChannelSlug.DEFAULT}/record`);
+export const metadata = { title: "로그인" };
+
+const NOTICES = {
+  "password-updated": "비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.",
+};
+
+// 로그인 화면. ?next=로 로그인 뒤 돌아갈 주소를 받습니다(우리 사이트 안의 주소만).
+export default async function LoginPage({ searchParams }) {
+  const params = await searchParams;
+  const next = SafeRedirect.path(params.next);
+  const viewer = await ServerViewer.current();
+  if (viewer.isSignedIn && !viewer.isPreviewAdmin) redirect(next);
+
+  return (
+    <LoginForm
+      next={next}
+      initialError={params.error ? String(params.error) : ""}
+      notice={NOTICES[params.notice] || ""}
+    />
+  );
 }

@@ -2,6 +2,7 @@ import "./globals.css";
 import InstallBanner from "@/components/InstallBanner";
 import ViewerProvider from "@/components/ViewerProvider";
 import { PLATFORM_NAME } from "@/lib/mockData";
+import { ServerViewer } from "@/lib/supabaseServer";
 import { WebAppBrand } from "@/lib/webApp";
 
 // 플랫폼 전체의 뼈대만 둡니다. 채널별 화면(내비게이션·스토어)은 app/[channel]/layout.js,
@@ -24,11 +25,13 @@ export const viewport = {
   themeColor: WebAppBrand.THEME_COLOR,
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // 로그인한 사람(Viewer)을 서버에서 한 번 읽어 모든 화면에 나눠줍니다.
+  const viewer = await ServerViewer.current();
   return (
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-stone-50 text-stone-800">
-        <ViewerProvider>{children}</ViewerProvider>
+        <ViewerProvider viewer={viewer.toJSON()}>{children}</ViewerProvider>
         <InstallBanner />
       </body>
     </html>

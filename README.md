@@ -92,15 +92,25 @@ DB에는 이 항목들을 모두 검색 가능한 형태로 저장해뒀어요 (
    npm run dev
    ```
 
-5. 브라우저에서 http://localhost:3000 접속. `/record`에서 녹음을 시작하면 브라우저가
+5. 브라우저에서 http://localhost:3000 접속. 스튜디오(`/theline/studio`)에서 녹음을 시작하면 브라우저가
    마이크 권한을 물어봅니다 — 허용해야 실제 녹음이 됩니다.
 
 Supabase 없이 확인 중이었다면, 개발자도구 콘솔에서
 `localStorage.removeItem("eunhye-the-line-store-v2")` 후 새로고침하면 초기 목업 데이터로 리셋됩니다.
 
+## 회원·구독·My Page
+
+회원 구조(방문자·회원·구독자·채널운영자), 로그인 설정, Supabase에 마이그레이션을 적용하는
+순서(0015 → 0016 → 운영자 등록 → 0017)는 `docs/multi-channel-architecture.md` 1장·6장에 있습니다.
+
+- 스튜디오는 채널 운영자로 로그인해야 들어갈 수 있습니다. 개발 중 로그인 없이 스튜디오를
+  보려면 `.env.local`에 `NEXT_PUBLIC_PREVIEW_ADMIN=true`를 넣으세요(로그인을 테스트할 때와
+  배포 환경에서는 넣지 마세요).
+- Google·카카오 로그인 버튼은 Supabase에서 제공자를 켠 뒤 `NEXT_PUBLIC_AUTH_PROVIDERS=google,kakao`를
+  넣으면 나타납니다.
+
 ## 다음 단계 (참고)
 
 - 배경음악 실제 믹싱(더킹 포함): 목소리 트랙과 배경음악을 `lib/audio.js`의 버퍼 합성 로직으로 함께 렌더링
 - 검색 UI: `fetchAudios({ search })`를 사용하는 검색창을 홈 화면에 추가
-- 로그인: Supabase Auth 연동 (Google은 기본 지원, 카카오는 커스텀 OAuth 처리 필요) 후 RLS 정책 강화
 - 레트로 / 이미지 스킨: 위 디자인 토큰을 기반으로 색상/폰트/텍스처를 교체

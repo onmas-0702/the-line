@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Pause, Play } from "lucide-react";
 import { useChannel } from "@/components/ChannelProvider";
+import ContentEngagement from "@/components/content/ContentEngagement";
 import { useContentPlayer } from "@/components/content/useContentPlayer";
 import { TimeFormat } from "@/lib/audio";
 import { ChannelContentQuery } from "@/lib/channelProfile";
@@ -84,6 +85,8 @@ export default function ContentPage() {
           {remaining !== null ? TimeFormat.duration(remaining) : item.duration}
         </p>
       </div>
+
+      <ContentEngagement key={item.id} item={item} isImmersive={isImmersive} />
 
       {others.length > 0 && (
         <div className="space-y-0.5 px-2 pb-6">

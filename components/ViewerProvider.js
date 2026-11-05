@@ -3,26 +3,30 @@
 // 지금 화면을 보는 사람(Viewer)을 하위 컴포넌트에 나눠줍니다. 권한 판단은 항상
 // AccessPolicy(lib/access.js)에 Viewer를 넘겨서 합니다.
 //
-// 로그인(Supabase Auth)이 붙기 전까지는:
-//   · NEXT_PUBLIC_PREVIEW_ADMIN=true  → 임시 관리자(모든 채널 소유자)로 봅니다.
-//   · NEXT_PUBLIC_PREVIEW_ADMIN=false → 비회원으로 봅니다(구독자가 보는 화면 확인용).
-//   · 설정하지 않으면 개발 환경(next dev)에서만 임시 관리자, 배포 환경에서는 비회원.
-// 로그인이 붙으면 여기서 세션·구독·채널 역할을 읽어 실제 Viewer를 만들면 됩니다.
+// Viewer는 서버(app/layout.js → ServerViewer.current())가 로그인 세션으로 만들어 평범한
+// 객체로 넘겨주고, 여기서 Viewer 인스턴스로 되살립니다. 다른 탭에서 로그인·로그아웃하는 등
+// 세션이 바뀌면 router.refresh()로 서버가 Viewer를 다시 만들게 합니다.
 
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Viewer } from "@/lib/access";
+import { supabase } from "@/lib/supabaseClient";
 
 const ViewerContext = createContext(Viewer.guest());
 
-function isPreviewAdminEnabled() {
-  const flag = process.env.NEXT_PUBLIC_PREVIEW_ADMIN;
-  if (flag === "true") return true;
-  if (flag === "false") return false;
-  return process.env.NODE_ENV === "development";
-}
+export default function ViewerProvider({ viewer: viewerData, children }) {
+  const router = useRouter();
+  const viewer = useMemo(() => Viewer.fromJSON(viewerData), [viewerData]);
 
-export default function ViewerProvider({ children }) {
-  const viewer = useMemo(() => (isPreviewAdminEnabled() ? Viewer.previewAdmin() : Viewer.guest()), []);
+  useEffect(() => {
+    if (!supabase || viewer.isPreviewAdmin) return undefined;
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const changedUser = (session?.user?.id || null) !== viewer.userId;
+      if ((event === "SIGNED_IN" || event === "SIGNED_OUT") && changedUser) router.refresh();
+    });
+    return () => data.subscription.unsubscribe();
+  }, [router, viewer.userId, viewer.isPreviewAdmin]);
+
   return <ViewerContext.Provider value={viewer}>{children}</ViewerContext.Provider>;
 }
 

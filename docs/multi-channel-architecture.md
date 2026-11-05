@@ -6,48 +6,57 @@
 녹음·편집·배경음악·디자인 기능은 모두 같은 코드를 함께 씁니다(채널마다 코드를
 복사하지 않습니다 — 데이터만 채널별로 나뉩니다).
 
-> 현재 단계: **기반 설계만 반영**. 로그인·결제·채널 개설 신청 화면은 아직 없고,
-> 지금은 채널 A 하나로 기능을 다듬는 중입니다.
+> 현재 단계(2026-11 결정): **운영사 채널 '은혜의 밤, 더 라인' 하나로 운영**합니다.
+> 유료 구독은 플랫폼 전체 단위이고 수익은 전부 플랫폼 것입니다(정산 없음). 채널 개설
+> 신청·채널운영 요금·정산은 유료회원을 충분히 모은 뒤 전문가와 구체화합니다. 코드는
+> 그때 채널을 늘릴 수 있도록 멀티 채널 구조를 그대로 유지합니다.
 
 ## 1. 회원 구조
 
-큰 틀은 고정이고, 세부 정책(댓글 범위, 무료 체험 등)은 바뀔 수 있습니다.
+| 구분 | 조건 | 할 수 있는 것 |
+| --- | --- | --- |
+| 방문자 | 로그인 안 함 | 모든 콘텐츠 듣기 |
+| 회원(비구독자) | 무료 가입 | + 한줄평·이모지 댓글(100자), 좋아요 |
+| 구독자 | 플랫폼 유료 구독(월 5천·연 5만) | + 담아두기, My Page(운영자 공지·담아두기·감상일기·오픈채팅 참여) |
+| 채널운영자 | 채널 역할(owner/editor) | 그 채널의 스튜디오(녹음·편집·콘텐츠 관리·디자인·공지) |
 
-| 등급 | 조건 | 관람 | 댓글 등 참여 | 채널(스튜디오) 개설 |
-| --- | --- | :---: | :---: | :---: |
-| 비회원 | 로그인 안 함 | ✅ | — | — |
-| 회원 | 무료 가입 | ✅ | ✅ | — |
-| 유료회원 | 회원 + 구독 결제 | ✅ | ✅ | ✅ (요금제 한도만큼) |
-
-- **결제는 사람에게 붙습니다.** 유료회원 구독(`member_subscriptions`)이 활성인 동안
-  채널을 열고 운영할 수 있습니다. 구독이 끝나면 그 사람이 소유한 채널은 `suspended`가 됩니다.
-- **등급은 따로 저장하지 않습니다.** "로그인 여부 + 구독 상태"로 그때그때 계산해서,
-  결제 상태와 등급이 어긋나는 일이 없게 합니다.
-- **채널 안의 역할**은 등급과 별개입니다. 채널 소유자(owner)는 다른 회원을 편집자(editor)로
-  초대할 수 있고, 편집자는 유료회원이 아니어도 그 채널의 제작/관리를 함께 할 수 있습니다.
-- **권한 규칙은 `lib/access.js`의 `AccessPolicy` 한 곳**에만 둡니다. 정책이 바뀌면
-  여기와 DB 정책(RLS)만 같이 고치면 됩니다.
+- **구독은 플랫폼 전체 단위**입니다(`member_subscriptions.kind = 'membership'`,
+  `channel_id = null`). 나중에 채널별 구독을 열면 `channel_id`에 채널을 넣습니다.
+- **채널운영 요금제**(월 1만·연 10만, `kind = 'studio'`)는 요금제 행만 만들어 두고
+  판매하지 않습니다(`is_active = false`). 채널운영자는 채널 이름에 '더 라인'을 넣고
+  플랫폼 준수사항에 동의해야 합니다(개설 신청 화면을 만들 때 `ChannelName` 검사로).
+- **등급은 따로 저장하지 않습니다.** "로그인 여부 + 구독 상태 + 채널 역할"을 DB 함수
+  `current_viewer()`가 한 번에 돌려주고, 앱은 이걸로 `Viewer`를 만듭니다.
+- **채널 운영자는 구독자 전용 기능도 씁니다**(자기 공지·커뮤니티 확인용,
+  `AccessPolicy.hasSubscriberAccess`, DB의 `has_subscriber_access()`).
+- **권한 규칙은 `lib/access.js` 한 곳**(`AccessPolicy`, 화면 안내용 `FeatureGate`)에만
+  두고, DB 정책(RLS)도 같은 규칙으로 맞춥니다.
 
 | `AccessPolicy` | 규칙 |
 | --- | --- |
 | `canView` | 운영 중인 채널이면 누구나 |
-| `canComment` | 회원 이상 |
-| `canCreateChannel` | 유료회원 + 요금제 채널 수 한도 안 |
-| `canManageChannel` | 그 채널의 owner/editor |
+| `canComment`, `canLike` | 회원 이상 |
+| `canSave`, `canWriteJournal`, `canReadNotices`, `canJoinCommunity` | 구독자(또는 채널 운영자) |
+| `canOpenMyPage` | 로그인한 회원(메뉴별 권한은 `MyPageMenu`) |
+| `canManageChannel`, `canPostNotice` | 그 채널의 owner/editor |
 | `canAdministerChannel` | 그 채널의 owner |
+| `canCreateChannel` | 채널운영 요금제 + 한도 안(다음 단계) |
 
 ## 2. 주소 체계
 
 | 주소 | 화면 | 상태 |
 | --- | --- | --- |
-| `/` | 플랫폼 홈(소개·채널 목록·개설 신청 안내) | 지금은 `/theline`으로 이동 |
-| `/{채널주소}` | 채널 홈(피드, 배경 스킨) | ✅ |
-| `/{채널주소}/content/{콘텐츠 id}` | 콘텐츠 화면(배경이미지 전체 화면 + 큰 재생 버튼) | ✅ |
-| `/{채널주소}/record` | 채널의 제작/관리 | ✅ |
-| `/login`, `/signup` | 플랫폼 공용 계정 화면 | 와이어프레임 |
-| `/apply` | 채널 개설 신청 + 요금제 선택 + 결제 | 예정 |
-| `/admin` | 운영사(플랫폼 관리자) 화면 | 예정 |
-| `/record` | 예전 주소 → `/theline/record`로 이동 | ✅ |
+| `/` | 플랫폼 메인(최신·많이 들은·자주 듣는 메신저) | ✅ |
+| `/{채널주소}` | 채널 홈 | ✅ |
+| `/{채널주소}/content/{콘텐츠 id}` | 콘텐츠 화면(재생 + 좋아요·담아두기·감상일기·한줄평) | ✅ |
+| `/{채널주소}/studio` | 스튜디오 — 채널 운영자만 | ✅ |
+| `/{채널주소}/record`, `/record` | 예전 주소 → 스튜디오로 이동 | ✅ |
+| `/login`, `/signup`, `/auth/…`, `/logout` | 로그인·가입·비밀번호 재설정 | ✅ (이메일) |
+| `/pricing` | 구독 안내·신청 | ✅ (카드 결제는 준비 중) |
+| `/mypage`, `/mypage/{메뉴}` | My Page | ✅ |
+| `/terms`, `/privacy` | 약관·개인정보 처리방침 | 자리만 |
+| `/apply` | 채널 개설 신청 | 다음 단계 |
+| `/admin` | 운영사 화면 | 다음 단계 |
 
 - **채널 주소(slug)**: 영문 소문자·숫자·하이픈, 3~30자. 한글 채널명은 화면에
   보이는 `name`으로 따로 둡니다(한글 주소는 공유할 때 `%EC%83%88...`처럼 깨져
@@ -103,11 +112,20 @@ channels ──< audios ──< comments
 | `components/ChannelProvider.js` | `useChannel()` → `{ channel, repos }`. 저장소는 전부 그 채널로 한정 |
 | `lib/supabaseRepository.js` | 공통 부모. `channelId`가 있으면 `scoped()`(조회 필터), `withChannel()`(저장 시 `channel_id`), `storagePath()` 자동 적용 |
 | `lib/store.js` | 채널별 화면 상태. localStorage도 채널마다 다른 키 |
-| `app/(platform)/` | 채널에 속하지 않는 계정·신청·관리 화면 |
+| `app/(platform)/` | 채널에 속하지 않는 계정·구독·My Page 화면 |
+| `lib/auth.js` | `AuthService`(로그인·가입·소셜·비밀번호), `SignInForm`/`SignUpForm`(입력 검사), `SafeRedirect`, `AuthPaths`, `AuthProvider` |
+| `lib/supabaseClient.js` | `SupabaseConfig` — 브라우저는 쿠키 세션 클라이언트, 서버는 공개 읽기용 |
+| `lib/supabaseServer.js` | `ServerSupabase`(요청별 세션 클라이언트), `ServerViewer.current()`, `PreviewAdminFlag` |
+| `lib/authProxy.js`, `proxy.js` | 매 요청 로그인 세션 갱신(Next 16의 proxy = 예전 middleware) |
+| `lib/pageGuard.js` | `PageGuard` — 로그인·채널 운영자 확인 후 이동 |
+| `lib/engagement.js` | 한줄평(`CommentDraft`/`CommentRepository`), 좋아요·담아두기(`AudioMarks`/`AudioMarkRepository`), 감상일기(`JournalDraft`/`JournalRepository`) |
+| `lib/community.js` | 운영자 공지(`NoticeRepository`), 오픈채팅(`CommunityInfo`/`ChannelCommunityRepository`) |
+| `lib/subscription.js` | `Plan`, `PlanRepository`, `PaymentGateway`(결제대행사 연결 틀), `SubscriptionTerms` |
+| `lib/myPage.js` | `MyPageMenu`(메뉴 등록), `SavedAudioQuery`, `JournalQuery`(검색) |
 
 **규칙**: 채널 안의 화면에서 Supabase를 부를 때는 반드시 `useChannel().repos`를
 씁니다. 저장소를 직접 `new` 하면 채널 구분이 빠집니다. 채널 안 링크는
-`channel.path("record")`처럼 만듭니다(`"/record"` 하드코딩 금지).
+`channel.path("…")`, 스튜디오는 `channel.studioPath(tab)`으로 만듭니다(주소 하드코딩 금지).
 
 **마이그레이션 전 호환**: `channels` 테이블이 없거나 Supabase가 설정되지 않았으면
 기본 채널은 `channel.id = null`인 레거시 모드로 동작해서, 지금과 똑같이
@@ -164,34 +182,53 @@ channels ──< audios ──< comments
 
   채널 로고는 로고 자리에만 쓰고 콘텐츠 카드에는 쓰지 않습니다.
 
-## 6. 앞으로의 단계
+## 6. 진행 상황과 운영 준비
 
-1. **회원가입·로그인 (Supabase Auth)** — `/login`, `/signup` 와이어프레임을 실제로
-   연결. 서버에서도 세션을 읽을 수 있게 `@supabase/ssr` 도입. 로그인한 사람의
-   `Viewer`(구독 상태·채널 역할)를 만들어 화면에 나눠줍니다.
-2. **댓글** — 콘텐츠 아래 댓글 목록(누구나), 작성란(`AccessPolicy.canComment`일 때만,
-   아니면 "회원가입 후 댓글을 남길 수 있어요").
-3. **쓰기 권한 좁히기 (RLS)** — 지금은 로그인이 없어서 누구나 쓸 수 있습니다.
-   로그인 후 아래처럼 "그 채널 멤버만"으로 바꿉니다:
+### 완료 (2026-11)
+
+1. **회원가입·로그인** — 이메일+비밀번호, 이메일 인증, 비밀번호 재설정. Google·카카오는
+   Supabase에서 켠 뒤 `NEXT_PUBLIC_AUTH_PROVIDERS=google,kakao`를 넣으면 버튼이 보입니다.
+   스튜디오(`/{채널}/studio`)는 채널 운영자만 들어갈 수 있습니다.
+2. **한줄평·이모지 댓글**, 좋아요·담아두기·감상일기 버튼(콘텐츠 화면).
+3. **쓰기 권한 좁히기(RLS)** — `0017_member_write_policies.sql`.
+4. **유료 구독 틀** — 요금제, 구독 안내 화면, 결제 전 고지. 실제 카드 결제는
+   `PaymentGateway`의 하위 클래스(예: 토스페이먼츠 정기결제)를 사업자등록·PG 계약 후 추가합니다.
+5. **My Page** — 운영자 공지, 담아두기(검색), 감상일기(메시지와 짝, 검색), 오픈채팅 참여.
+   운영자는 스튜디오 → 공지 탭에서 공지와 오픈채팅 링크를 관리합니다.
+
+### Supabase에 적용하는 순서
+
+1. SQL Editor에서 `0015_auth_viewer.sql`, `0016_engagement_mypage.sql` 실행
+2. Authentication → URL Configuration
+   - Site URL: 배포 주소(예: `https://the-line-….vercel.app`)
+   - Redirect URLs: `http://localhost:3000/**`, `https://<배포 주소>/**`
+3. 운영자 계정으로 `/signup`에서 가입(이메일 인증까지)
+4. 그 계정을 기본 채널의 소유자로 등록:
    ```sql
-   drop policy "audios_public_insert" on audios;
-   create policy "audios_member_insert" on audios
-     for insert with check (is_channel_member(channel_id));
-   -- update/delete, background_tracks, site_settings, storage.objects도 같은 방식
+   insert into channel_members (channel_id, user_id, role)
+   select c.id, u.id, 'owner'
+   from channels c, auth.users u
+   where c.slug = 'theline' and u.email = '운영자@이메일'
+   on conflict (channel_id, user_id) do update set role = 'owner';
    ```
-   그리고 `/{채널}/record`는 멤버만 들어올 수 있게 레이아웃에서 막습니다.
-4. **유료회원 가입 + 채널 개설 (`/apply`)**
-   1. 회원 로그인 → 요금제 선택 → PG 결제창(예: 토스페이먼츠 정기결제)
-   2. 결제 성공 웹훅을 서버(Route Handler, service role 키)가 받아
-      `member_subscriptions.status = active` → 이제 유료회원
-   3. 채널 주소·이름 입력(`ChannelSlug.validate`로 즉시 확인) →
-      `channels`(active) + `channel_members`(owner) 생성 (`AccessPolicy.canCreateChannel` 확인)
-   4. 결제 실패·해지 → 구독 `past_due`/`canceled` → 소유 채널 `suspended`
-5. **운영사 화면 (`/admin`)** — 채널 목록, 상태 변경.
-6. **공용 자산 라이브러리 화면** — 운영 채널의 자산 올리기(출처 입력), 다른 채널의
-   공용 라이브러리 둘러보기·가져가기, `background_tracks` 옮기기 (5장 참고).
-7. **플랫폼 홈 (`/`)** — 채널 목록·소개·개설 안내 추가.
-8. **요금제 한도** — `plans.limits`(채널 수, 용량, 편집자 수 등)를 개설/업로드/초대 시 검사.
+5. 운영자 계정으로 스튜디오 저장이 되는지 확인한 뒤 `0017_member_write_policies.sql` 실행
+6. (결제 연동 전) 구독자를 직접 지급할 때:
+   ```sql
+   insert into member_subscriptions (user_id, plan_code, kind, status, provider, current_period_end, note)
+   select id, 'membership_monthly', 'membership', 'active', 'manual', now() + interval '1 month', '운영자 지급'
+   from auth.users where email = '구독자@이메일'
+   on conflict (user_id, kind, channel_id) do update
+     set status = 'active', current_period_end = excluded.current_period_end;
+   ```
+
+### 다음 단계
+
+- **카드 정기결제 연동** — 사업자등록·통신판매업 신고·PG 계약 후. 결제 완료 웹훅(Route
+  Handler, service role 키)이 `member_subscriptions`를 갱신. 약관·환불정책 법률 검토.
+- **My Page 해지 버튼** — 결제 연동과 함께(`cancel_at_period_end`).
+- **무료 '구독'(channel_followers)을 '팔로우'로 이름 정리** — 유료 구독과 헷갈리지 않게.
+- **채널 개설 신청(`/apply`)·채널운영 요금·정산** — 유료회원 확보 후.
+- **운영사 화면(`/admin`)**, **요금제 한도 검사**.
 
 ## 7. 나중에 정할 것
 

@@ -1,7 +1,7 @@
 "use client";
 
 // 채널 이미지(로고·대표이미지) 교체 흐름 — 파일 고르기 → 규격에 맞게 자동으로 자르기
-// → 미리보기 → 적용. 채널 페이지의 오버레이 버튼과 제작/관리 → 디자인 탭이 함께 씁니다.
+// → 미리보기 → 적용. 채널 페이지의 오버레이 버튼과 스튜디오 → 디자인 탭이 함께 씁니다.
 
 import { useEffect, useState } from "react";
 import { Camera, CheckCircle2, Trash2, UploadCloud } from "lucide-react";
@@ -181,7 +181,7 @@ export function ImageEditOverlay({ slot, compact = false, className = "" }) {
   );
 }
 
-/** 제작/관리 → 디자인 탭에 놓는 이미지 설정 카드(규격 안내 + 현재/새 이미지 미리보기). */
+/** 스튜디오 → 디자인 탭에 놓는 이미지 설정 카드(규격 안내 + 현재/새 이미지 미리보기). */
 export function ChannelImagePanel({ slot }) {
   const editor = useChannelImageEditor(slot);
   const previewWidth = slot.spec.aspectWidth === slot.spec.aspectHeight ? "w-32" : "w-full";

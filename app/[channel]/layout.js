@@ -1,14 +1,11 @@
-import { cache } from "react";
 import { notFound } from "next/navigation";
 import ChannelProvider from "@/components/ChannelProvider";
 import NavBar from "@/components/NavBar";
-import { ChannelResolver } from "@/lib/channel";
-import { PLATFORM_NAME, SITE_NAME } from "@/lib/mockData";
+import { resolveChannel } from "@/lib/channelLookup";
+import { PLATFORM_NAME } from "@/lib/mockData";
 import { AppStoreProvider } from "@/lib/store";
 
 // 대표 주소 뒤의 첫 경로가 채널 주소입니다: /theline, /saebit …
-// 레이아웃과 generateMetadata가 같은 요청에서 채널을 두 번 조회하지 않도록 cache로 묶습니다.
-const resolveChannel = cache((slug) => new ChannelResolver({ defaultName: SITE_NAME }).resolve(slug));
 
 export async function generateMetadata({ params }) {
   const { channel: slug } = await params;

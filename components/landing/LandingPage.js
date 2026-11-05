@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import AccountMenu from "@/components/auth/AccountMenu";
 import FeedRow from "@/components/landing/FeedRow";
 import PlatformFooter from "@/components/landing/PlatformFooter";
 import { AudioRepository } from "@/lib/audioStorage";
@@ -150,19 +151,8 @@ export default function LandingPage() {
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col bg-stone-50">
       <header className="px-4 pt-8">
         <h1 className="text-center text-2xl font-bold tracking-tight text-stone-900">{PLATFORM_TITLE}</h1>
-        <div className="mt-4 flex justify-end gap-2">
-          <Link
-            href="/login"
-            className="rounded-full border border-stone-300 bg-white px-4 py-1.5 text-sm font-medium text-stone-600 transition hover:bg-stone-100"
-          >
-            로그인
-          </Link>
-          <Link
-            href="/signup"
-            className="rounded-full bg-amber-700 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-amber-800"
-          >
-            회원가입
-          </Link>
+        <div className="mt-4">
+          <AccountMenu variant="landing" />
         </div>
       </header>
 
