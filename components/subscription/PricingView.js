@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BookOpen, Bookmark, Check, Megaphone, MessageCircle, NotebookPen } from "lucide-react";
 import { AccessPolicy, Viewer } from "@/lib/access";
 import { AuthPaths } from "@/lib/auth";
+import { PLATFORM_TITLE } from "@/lib/mockData";
 import { MyPageMenu } from "@/lib/myPage";
 import { PaymentGateway, Plan, SubscriptionPaths, SubscriptionStatus, SubscriptionTerms } from "@/lib/subscription";
 
@@ -36,7 +37,7 @@ export default function PricingView({ viewer: viewerData, plans: planData }) {
     <div className="mx-auto max-w-md space-y-6 py-6">
       <div className="text-center">
         <h1 className="text-xl font-semibold text-stone-900">구독하기</h1>
-        <p className="mt-2 text-sm text-stone-500">은혜의 밤, 더 라인을 더 가까이에서 함께해 주세요.</p>
+        <p className="mt-2 text-sm text-stone-500">{PLATFORM_TITLE}을 더 가까이에서 함께해 주세요.</p>
       </div>
 
       <ul className="space-y-2 rounded-2xl border border-stone-200 bg-white p-4">

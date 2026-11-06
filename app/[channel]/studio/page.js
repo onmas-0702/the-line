@@ -18,7 +18,6 @@ import { AudioEngine, BackgroundMixer, TimeFormat, WavEncoder } from "@/lib/audi
 import { useChannel } from "@/components/ChannelProvider";
 import { AudioMetadata } from "@/lib/audioStorage";
 import { ContentCoverChoice } from "@/lib/contentCover";
-import { CATEGORY_OPTIONS } from "@/lib/mockData";
 import { MicrophoneDevices, MicrophoneRecorder, RecorderError } from "@/lib/recorder";
 import { useAppStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
@@ -60,10 +59,6 @@ export default function RecordPage() {
 
   // 메타데이터 — 나중에 검색에 쓰일 수 있도록 기본 항목을 받아둡니다.
   const [title, setTitle] = useState("");
-  const [pastorName, setPastorName] = useState("");
-  const [church, setChurch] = useState("");
-  const [scriptureReference, setScriptureReference] = useState("");
-  const [category, setCategory] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [description, setDescription] = useState("");
   const [scriptFile, setScriptFile] = useState(null);
@@ -271,10 +266,6 @@ export default function RecordPage() {
     setCanUndo(false);
     setVoiceOffsetSeconds(BackgroundMixer.DEFAULT_VOICE_OFFSET_SECONDS);
     setTitle("");
-    setPastorName("");
-    setChurch("");
-    setScriptureReference("");
-    setCategory("");
     setTagsInput("");
     setDescription("");
     setScriptFile(null);
@@ -306,10 +297,6 @@ export default function RecordPage() {
       if (isSupabaseConfigured) {
         const metadata = new AudioMetadata({
           title: resolvedTitle,
-          pastorName: pastorName.trim(),
-          church: church.trim(),
-          scriptureReference: scriptureReference.trim(),
-          category,
           tags: AudioMetadata.parseTags(tagsInput),
           description: description.trim(),
           durationSeconds: finalBuffer.duration,
@@ -329,8 +316,6 @@ export default function RecordPage() {
           addAudio({
             coverImageUrl: coverResult.displayUrl,
             title: resolvedTitle,
-            pastorName: pastorName.trim(),
-            church: church.trim(),
             hasScript: Boolean(scriptFile),
             scriptFileName: scriptFile?.name || "",
             duration: TimeFormat.duration(finalBuffer.duration),
@@ -341,8 +326,6 @@ export default function RecordPage() {
         addAudio({
           coverImageUrl: coverResult.displayUrl,
           title: resolvedTitle,
-          pastorName: pastorName.trim() || undefined,
-          church: church.trim() || undefined,
           hasScript: Boolean(scriptFile),
           scriptFileName: scriptFile?.name || "",
           duration: TimeFormat.duration(finalBuffer.duration),
@@ -564,7 +547,7 @@ export default function RecordPage() {
       <section>
         <h2 className="text-base font-semibold text-stone-900">나눔 정보</h2>
         <p className="mt-1 text-xs text-stone-400">
-          아래 정보는 나중에 검색과 분류에 쓰입니다. 제목 외에는 비워둬도 저장할 수 있어요.
+          제목·태그·설명은 검색에 쓰입니다. 제목 외에는 비워둬도 저장할 수 있어요.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -576,55 +559,6 @@ export default function RecordPage() {
               placeholder="나눔 제목을 입력하세요"
               className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
             />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-stone-500">설교자 / 목사님</label>
-            <input
-              type="text"
-              value={pastorName}
-              onChange={(e) => setPastorName(e.target.value)}
-              placeholder="예: 김은혜 목사"
-              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-stone-500">교회</label>
-            <input
-              type="text"
-              value={church}
-              onChange={(e) => setChurch(e.target.value)}
-              placeholder="예: 새빛교회"
-              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-stone-500">성경 본문</label>
-            <input
-              type="text"
-              value={scriptureReference}
-              onChange={(e) => setScriptureReference(e.target.value)}
-              placeholder="예: 시편 23:1-6"
-              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-stone-500">카테고리</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
-            >
-              <option value="">선택 안 함</option>
-              {CATEGORY_OPTIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div className="sm:col-span-2">

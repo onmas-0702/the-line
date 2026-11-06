@@ -38,3 +38,19 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     "Malgun Gothic", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
+
+/*
+ * 터치 반전 — 휴대폰(마우스 없는 기기)에서 버튼을 손가락으로 누르고 있는 동안 색을 반전해
+ * "눌렸다"는 느낌을 줍니다. 대상: 모든 <button>, 그리고 버튼 모양 링크(둥근 모서리 클래스).
+ * 콘텐츠 카드처럼 넓은 링크는 제외됩니다. iOS는 components/common/TouchFeedback.js가 켜 줍니다.
+ */
+@media (hover: none) {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:not(:disabled):active,
+  a[class*="rounded-full"]:active,
+  a[class*="rounded-xl"]:active {
+    filter: invert(1) hue-rotate(180deg);
+  }
+}

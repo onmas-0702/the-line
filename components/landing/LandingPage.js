@@ -153,7 +153,7 @@ export default function LandingPage() {
       <header className="px-4 pt-8">
         <h1 className="text-center text-2xl font-bold tracking-tight text-stone-900">{PLATFORM_TITLE}</h1>
         <div className="mt-4">
-          <AccountMenu variant="landing" leading={[{ href: `/${ChannelSlug.DEFAULT}`, label: "내 채널로 가기", icon: Radio }]} />
+          <AccountMenu variant="landing" leading={[{ href: `/${ChannelSlug.DEFAULT}`, label: "마이 채널", icon: Radio }]} />
         </div>
       </header>
 

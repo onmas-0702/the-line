@@ -1,25 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, Pencil, Trash2, X } from "lucide-react";
+import { AlertCircle, FileAudio, Pencil, Trash2, X } from "lucide-react";
 import ContentCoverPicker from "@/components/ContentCoverPicker";
 import ContentThumbnail from "@/components/ContentThumbnail";
 import { useChannel } from "@/components/ChannelProvider";
-import { AudioMetadata } from "@/lib/audioStorage";
+import { TimeFormat } from "@/lib/audio";
+import { AudioMetadata, ReplacementAudioFile } from "@/lib/audioStorage";
 import { ContentCoverChoice } from "@/lib/contentCover";
-import { CATEGORY_OPTIONS } from "@/lib/mockData";
 import { useAppStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
-// 오디오 파일 자체(믹싱 결과)는 다시 편집하지 않고, 검색/분류에 쓰이는
-// 메타데이터만 고칠 수 있게 합니다 — 업로드 폼과 같은 항목입니다.
+// 콘텐츠 수정 — 오디오 파일 바꾸기, 배경이미지, 제목·태그·간단한 설명.
+// (설교자·교회·성경 본문·카테고리는 입력칸을 없앴고, 이미 저장된 값은 그대로 둡니다.)
 function EditForm({ item, onCancel, onSave }) {
   const { repos } = useChannel();
   const [title, setTitle] = useState(item.title || "");
-  const [pastorName, setPastorName] = useState(item.pastorName || "");
-  const [church, setChurch] = useState(item.church || "");
-  const [scriptureReference, setScriptureReference] = useState(item.scriptureReference || "");
-  const [category, setCategory] = useState(item.category || "");
+  const [newAudio, setNewAudio] = useState(null); // ReplacementAudioFile
+  const [audioError, setAudioError] = useState("");
   const [tagsInput, setTagsInput] = useState((item.tags || []).join(", "));
   const [description, setDescription] = useState(item.description || "");
   const [coverChoice, setCoverChoice] = useState(() => ContentCoverChoice.keep(item));
@@ -39,21 +37,46 @@ function EditForm({ item, onCancel, onSave }) {
     return { patch, notice: saved.ok ? "" : pendingNotice };
   }
 
+  async function pickAudio(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    setAudioError("");
+    const { audioFile, error: fileError } = await ReplacementAudioFile.from(file);
+    if (fileError) return setAudioError(fileError);
+    setNewAudio(audioFile);
+  }
+
+  /** 새 오디오 파일을 골랐으면 올리고, 화면에 반영할 값을 돌려줍니다. */
+  async function saveAudio() {
+    if (!newAudio) return { ok: true, patch: {} };
+    const patch = { duration: TimeFormat.duration(newAudio.durationSeconds), durationSeconds: newAudio.durationSeconds };
+    if (!isSupabaseConfigured) return { ok: true, patch: { ...patch, previewUrl: newAudio.previewUrl } };
+    const result = await repos.audios.replaceAudioFile(item.id, newAudio);
+    if (!result.ok) return { ok: false, reason: result.reason };
+    return { ok: true, patch: { ...patch, previewUrl: result.row.audio_url } };
+  }
+
   async function handleSave() {
     const resolvedTitle = title.trim() || "제목 없는 나눔";
     const tags = AudioMetadata.parseTags(tagsInput);
     const metadata = {
       title: resolvedTitle,
-      pastorName: pastorName.trim(),
-      church: church.trim(),
-      scriptureReference: scriptureReference.trim(),
-      category,
+      // 입력칸이 없는 항목은 저장된 값을 그대로 넘겨서 지워지지 않게 합니다.
+      pastorName: item.pastorName || "",
+      church: item.church || "",
+      scriptureReference: item.scriptureReference || "",
+      category: item.category || "",
       tags,
       description: description.trim(),
     };
     setIsSaving(true);
     setError("");
     try {
+      const audio = await saveAudio();
+      if (!audio.ok) {
+        setError(`오디오 파일을 바꾸지 못했어요: ${audio.reason}`);
+        return;
+      }
       if (isSupabaseConfigured) {
         const result = await repos.audios.update(item.id, metadata);
         if (!result.ok) {
@@ -62,7 +85,7 @@ function EditForm({ item, onCancel, onSave }) {
         }
       }
       const cover = await saveCover();
-      onSave({ ...metadata, ...cover.patch }, cover.notice);
+      onSave({ ...metadata, ...audio.patch, ...cover.patch }, cover.notice);
     } finally {
       setIsSaving(false);
     }
@@ -70,6 +93,43 @@ function EditForm({ item, onCancel, onSave }) {
 
   return (
     <div className="mt-3 space-y-2.5 rounded-lg bg-stone-50 p-3">
+      <div>
+        <label className="block text-xs font-medium text-stone-500">오디오 파일</label>
+        <div className="mt-1 space-y-2 rounded-lg border border-stone-200 bg-white p-3">
+          <p className="text-xs text-stone-500">
+            {newAudio ? (
+              <>
+                새 파일: <span className="font-medium text-stone-800">{newAudio.file.name}</span> ·{" "}
+                {TimeFormat.duration(newAudio.durationSeconds)} <span className="text-amber-700">(저장하면 바뀌어요)</span>
+              </>
+            ) : (
+              <>지금 파일 · {item.duration}</>
+            )}
+          </p>
+          {(newAudio || item.previewUrl) && (
+            <audio
+              key={newAudio ? newAudio.previewUrl : "current"}
+              controls
+              preload="none"
+              src={newAudio ? newAudio.previewUrl : item.previewUrl}
+              className="h-9 w-full"
+            />
+          )}
+          <div className="flex items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:border-stone-400">
+              <FileAudio size={14} strokeWidth={1.5} />
+              {newAudio ? "다른 파일 고르기" : "새 파일로 바꾸기"}
+              <input type="file" accept={ReplacementAudioFile.ACCEPT} onChange={pickAudio} disabled={isSaving} className="hidden" />
+            </label>
+            {newAudio && (
+              <button type="button" onClick={() => setNewAudio(null)} className="text-xs text-stone-400 hover:text-stone-600">
+                바꾸지 않기
+              </button>
+            )}
+          </div>
+          {audioError && <p className="text-xs text-red-600">{audioError}</p>}
+        </div>
+      </div>
       <div>
         <label className="block text-xs font-medium text-stone-500">배경이미지</label>
         <div className="mt-1 rounded-lg border border-stone-200 bg-white p-3">
@@ -83,49 +143,6 @@ function EditForm({ item, onCancel, onSave }) {
           onChange={(e) => setTitle(e.target.value)}
           className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
         />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="block text-xs font-medium text-stone-500">설교자 / 목사님</label>
-          <input
-            value={pastorName}
-            onChange={(e) => setPastorName(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-stone-500">교회</label>
-          <input
-            value={church}
-            onChange={(e) => setChurch(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="block text-xs font-medium text-stone-500">성경 본문</label>
-          <input
-            value={scriptureReference}
-            onChange={(e) => setScriptureReference(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-stone-500">카테고리</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
-          >
-            <option value="">선택 안 함</option>
-            {CATEGORY_OPTIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
       <div>
         <label className="block text-xs font-medium text-stone-500">태그 (쉼표로 구분)</label>
@@ -232,9 +249,11 @@ export default function ManageContentPanel() {
                 className="h-14 w-14 shrink-0 rounded-xl p-0"
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-amber-700">
-                  {[item.pastorName, item.church].filter(Boolean).join(" · ") || "정보 없음"}
-                </p>
+                {(item.pastorName || item.church) && (
+                  <p className="truncate text-sm font-medium text-amber-700">
+                    {[item.pastorName, item.church].filter(Boolean).join(" · ")}
+                  </p>
+                )}
                 <h3 className="mt-0.5 truncate text-base font-semibold text-stone-900">{item.title}</h3>
                 <p className="mt-1 text-xs text-stone-400">
                   {item.date} · {item.duration} · 재생 {item.plays}회

@@ -18,7 +18,7 @@ const LANDING_BUTTON =
 const STYLES = {
   // 플랫폼 메인 — 가는 선 아이콘 + 글자, 모두 같은 색의 테두리 버튼
   landing: {
-    wrap: "flex flex-wrap justify-end gap-2",
+    wrap: "flex flex-wrap justify-center gap-2",
     outline: LANDING_BUTTON,
     solid: LANDING_BUTTON,
   },
