@@ -80,7 +80,7 @@ function usePlatformFeed() {
 
 function CountSelector({ value, onChange }) {
   return (
-    <div className="flex items-center gap-1 rounded-full bg-stone-100 p-0.5 text-xs" role="group" aria-label="목록 개수">
+    <div className="flex items-center gap-1 rounded-full bg-stone-800/70 p-0.5 text-xs" role="group" aria-label="목록 개수">
       {FeedSections.COUNT_OPTIONS.map((n) => (
         <button
           key={n}
@@ -88,7 +88,7 @@ function CountSelector({ value, onChange }) {
           onClick={() => onChange(n)}
           aria-pressed={value === n}
           className={`rounded-full px-2.5 py-1 tabular-nums transition ${
-            value === n ? "bg-white font-semibold text-stone-900 shadow-sm" : "text-stone-500"
+            value === n ? "bg-stone-200 font-semibold text-stone-900 shadow-sm" : "text-stone-400"
           }`}
         >
           {n}개
@@ -149,9 +149,12 @@ export default function LandingPage() {
   const rowProps = { playingId, onTogglePlay: togglePlay };
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col bg-stone-50">
+    // 밤 톤(다크) 시험 적용 — 저녁·밤에 듣는 오디오 메시지 콘셉트. 화면 전체 폭을 어둡게 칠하고
+    // 상단에는 위에서 비추는 듯한 은은한 호박색 빛을 깔았습니다(추후 상단 이미지 자리).
+    <div className="flex flex-1 flex-col bg-stone-950 [--surface:#0c0a09] bg-[radial-gradient(ellipse_at_top,rgb(120_53_15/0.35),transparent_55%)] text-stone-200">
+    <div className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col">
       <header className="px-4 pt-8">
-        <h1 className="text-center text-2xl font-bold tracking-tight text-stone-900">{PLATFORM_TITLE}</h1>
+        <h1 className="text-center text-2xl font-bold tracking-tight text-amber-50">{PLATFORM_TITLE}</h1>
         <div className="mt-4">
           <AccountMenu variant="landing" leading={[{ href: `/${ChannelSlug.DEFAULT}`, label: "마이 채널", icon: Radio }]} />
         </div>
@@ -159,7 +162,7 @@ export default function LandingPage() {
 
       <main className="mt-4 flex-1">
         <div className="flex items-center justify-between px-4">
-          <p className="text-xs text-stone-400">{isLoading ? "콘텐츠를 불러오는 중…" : "옆으로 넘겨서 더 보기"}</p>
+          <p className="text-xs text-stone-500">{isLoading ? "콘텐츠를 불러오는 중…" : "옆으로 넘겨서 더 보기"}</p>
           <CountSelector value={count} onChange={changeCount} />
         </div>
 
@@ -190,7 +193,7 @@ export default function LandingPage() {
 
         {/* 배너 광고 · 영상 콘텐츠 자리 — 추후 진행 */}
         <section className="px-4 py-4" aria-label="배너">
-          <div className="flex aspect-[16/7] w-full items-center justify-center rounded-2xl border-2 border-dashed border-stone-300 bg-white text-xs text-stone-400">
+          <div className="flex aspect-[16/7] w-full items-center justify-center rounded-2xl border border-dashed border-stone-700 bg-stone-900/60 text-xs text-stone-500">
             배너 광고 · 영상 콘텐츠 영역 (준비 중)
           </div>
         </section>
@@ -199,6 +202,7 @@ export default function LandingPage() {
       <PlatformFooter />
 
       <audio ref={audioRef} onEnded={() => setPlayingId(null)} className="hidden" />
+    </div>
     </div>
   );
 }

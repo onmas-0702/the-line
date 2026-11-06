@@ -40,10 +40,42 @@ body {
 }
 
 /*
- * 터치 반전 — 휴대폰(마우스 없는 기기)에서 버튼을 손가락으로 누르고 있는 동안 색을 반전해
- * "눌렸다"는 느낌을 줍니다. 대상: 모든 <button>, 그리고 버튼 모양 링크(둥근 모서리 클래스).
- * 콘텐츠 카드처럼 넓은 링크는 제외됩니다. iOS는 components/common/TouchFeedback.js가 켜 줍니다.
+ * 버튼 반전 + 간접조명 — 마우스를 올리면(휴대폰은 손가락으로 누르고 있는 동안) 버튼 색을 반전하고,
+ * 버튼 뒤로 따뜻한 호박색 빛이 은은하게 번지게 합니다(밤의 간접조명 느낌).
+ * invert 뒤에 drop-shadow를 두어 빛 색은 반전되지 않고 그대로 남습니다.
+ * 대상: 모든 <button>, 그리고 버튼 모양 링크(둥근 모서리 클래스). 콘텐츠 카드처럼 넓은 링크는 제외.
+ * iOS 터치는 components/common/TouchFeedback.js가 켜 줍니다.
  */
+/* 배경이 투명한 버튼은 반전해도 투명이라 글자만 사라지므로, 그 아래 화면 바탕색(--surface)을
+ * 먼저 깔아 둡니다. base 층이라 bg-* 클래스가 있는 버튼에는 영향이 없습니다.
+ * 어두운 화면은 감싸는 요소에서 --surface를 바꿔 줍니다(예: 메인의 밤 톤). */
+@layer base {
+  @media (hover: hover) {
+    button:not(:disabled):hover,
+    a[class*="rounded-full"]:hover,
+    a[class*="rounded-xl"]:hover {
+      background-color: var(--surface);
+    }
+  }
+  @media (hover: none) {
+    button:not(:disabled):active,
+    a[class*="rounded-full"]:active,
+    a[class*="rounded-xl"]:active {
+      background-color: var(--surface);
+    }
+  }
+}
+:root {
+  --surface: #fafaf9; /* stone-50, body 바탕 */
+  --glow: drop-shadow(0 0 6px rgb(251 191 36 / 0.45)) drop-shadow(0 0 16px rgb(245 158 11 / 0.25));
+}
+@media (hover: hover) {
+  button:not(:disabled):hover,
+  a[class*="rounded-full"]:hover,
+  a[class*="rounded-xl"]:hover {
+    filter: invert(1) hue-rotate(180deg) var(--glow);
+  }
+}
 @media (hover: none) {
   html {
     -webkit-tap-highlight-color: transparent;
@@ -51,6 +83,6 @@ body {
   button:not(:disabled):active,
   a[class*="rounded-full"]:active,
   a[class*="rounded-xl"]:active {
-    filter: invert(1) hue-rotate(180deg);
+    filter: invert(1) hue-rotate(180deg) var(--glow);
   }
 }

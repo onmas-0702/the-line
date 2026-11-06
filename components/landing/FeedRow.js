@@ -31,14 +31,14 @@ function FeedCard({ item, rank, isPlaying, onTogglePlay }) {
         </button>
       </div>
       <Link href={item.href} className="block">
-        <h3 className="mt-1.5 line-clamp-2 text-xs font-semibold leading-snug text-stone-900 group-hover:text-amber-800">
+        <h3 className="mt-1.5 line-clamp-2 text-xs font-semibold leading-snug text-stone-100 group-hover:text-amber-200">
           {item.title}
         </h3>
-        <p className="mt-0.5 truncate text-[11px] text-amber-700">
+        <p className="mt-0.5 truncate text-[11px] text-amber-500/90">
           {item.pastorName}
           {item.church ? ` · ${item.church}` : ""}
         </p>
-        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-400">
+        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-500">
           <Headphones size={11} /> {item.plays || 0}회
         </p>
       </Link>
@@ -50,11 +50,11 @@ export default function FeedRow({ title, subtitle, items, ranked = false, playin
   return (
     <section className="py-4">
       <div className="px-4">
-        <h2 className="text-base font-semibold text-stone-900">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-xs text-stone-400">{subtitle}</p>}
+        <h2 className="text-base font-semibold text-stone-100">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-xs text-stone-500">{subtitle}</p>}
       </div>
       {items.length === 0 ? (
-        <p className="mx-4 mt-3 rounded-xl bg-stone-100 px-4 py-6 text-center text-xs text-stone-400">{emptyText}</p>
+        <p className="mx-4 mt-3 rounded-xl bg-stone-900 px-4 py-6 text-center text-xs text-stone-500">{emptyText}</p>
       ) : (
         <div className="mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto scroll-px-4 px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {items.map((item, i) => (

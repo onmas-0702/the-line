@@ -13,7 +13,7 @@ import { AuthPaths } from "@/lib/auth";
 import { MyPageMenu } from "@/lib/myPage";
 
 const LANDING_BUTTON =
-  "inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-transparent px-3.5 py-1.5 text-[13px] font-medium tracking-tight text-stone-600 transition hover:border-stone-400 hover:text-stone-900";
+  "inline-flex items-center gap-1.5 rounded-full border border-stone-600 px-3.5 py-1.5 text-[13px] font-medium tracking-tight text-stone-300 transition duration-300";
 
 const STYLES = {
   // 플랫폼 메인 — 가는 선 아이콘 + 글자, 모두 같은 색의 테두리 버튼
@@ -49,7 +49,7 @@ function LineLabel({ icon: Icon, children }) {
   );
 }
 
-/** leading: 계정 버튼 앞에 둘 링크들 [{ href, label, icon }] — 예: 메인 화면의 스튜디오 */
+/** leading: 로그인한 회원에게만 계정 버튼 앞에 보여 줄 링크들 [{ href, label, icon }] — 예: 메인 화면의 마이 채널 */
 export default function AccountMenu({ variant = "nav", leading = [] }) {
   const viewer = useViewer();
   const pathname = usePathname();
@@ -66,7 +66,6 @@ export default function AccountMenu({ variant = "nav", leading = [] }) {
   if (!viewer.isSignedIn) {
     return (
       <div className={style.wrap}>
-        {leadingLinks}
         <Link href={AuthPaths.login(pathname)} className={style.outline} aria-label="로그인">
           {label(LogIn, "로그인")}
         </Link>
