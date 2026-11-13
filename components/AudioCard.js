@@ -28,7 +28,7 @@ export default function AudioCard({ item }) {
     <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-amber-700">
+          <p className="text-sm font-medium text-night-700">
             {item.pastorName} · {item.church}
           </p>
           <h3 className="mt-1 text-base font-semibold text-stone-900">
@@ -36,7 +36,7 @@ export default function AudioCard({ item }) {
           </h3>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {item.hasScript && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-night-50 px-2 py-0.5 text-[11px] text-night-700">
                 <FileText size={11} /> 대본 있음
               </span>
             )}
@@ -63,14 +63,14 @@ export default function AudioCard({ item }) {
           onClick={togglePlay}
           disabled={!playable}
           title={playable ? undefined : "샘플 데이터입니다 (재생 준비중)"}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-700 text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-night-700 text-white transition hover:bg-night-800 disabled:cursor-not-allowed disabled:bg-stone-300"
           aria-label="재생"
         >
           {isPlaying ? <Pause size={14} /> : <Play size={14} />}
         </button>
         <div className="h-2 flex-1 rounded-full bg-stone-100">
           <div
-            className="h-2 rounded-full bg-amber-300 transition-[width]"
+            className="h-2 rounded-full bg-night-300 transition-[width]"
             style={{ width: `${playable ? progress : 25}%` }}
           />
         </div>
@@ -103,7 +103,7 @@ export default function AudioCard({ item }) {
           <a
             href={item.scriptUrl}
             download={item.scriptFileName || true}
-            className="ml-auto flex items-center gap-1 hover:text-amber-700"
+            className="ml-auto flex items-center gap-1 hover:text-night-700"
           >
             <Download size={13} /> 대본 다운로드
           </a>
@@ -111,7 +111,7 @@ export default function AudioCard({ item }) {
           <button
             type="button"
             disabled={!item.hasScript}
-            className="ml-auto flex items-center gap-1 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="ml-auto flex items-center gap-1 hover:text-night-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Download size={13} /> 대본 다운로드
           </button>

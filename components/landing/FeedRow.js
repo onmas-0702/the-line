@@ -23,7 +23,7 @@ function FeedCard({ item, rank, isPlaying, onTogglePlay }) {
           disabled={!playable}
           title={playable ? "바로 듣기" : "샘플 데이터입니다 (재생 준비중)"}
           className={`absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full shadow transition disabled:cursor-not-allowed ${
-            playable ? "bg-white text-amber-800 hover:scale-105" : "bg-white/60 text-stone-400"
+            playable ? "bg-white text-night-800 hover:scale-105" : "bg-white/60 text-stone-400"
           }`}
           aria-label={isPlaying ? `${item.title} 정지` : `${item.title} 바로 듣기`}
         >
@@ -31,14 +31,14 @@ function FeedCard({ item, rank, isPlaying, onTogglePlay }) {
         </button>
       </div>
       <Link href={item.href} className="block">
-        <h3 className="mt-1.5 line-clamp-2 text-xs font-semibold leading-snug text-stone-100 group-hover:text-amber-200">
+        <h3 className="mt-1.5 line-clamp-2 text-xs font-semibold leading-snug text-stone-900 group-hover:text-night-800">
           {item.title}
         </h3>
-        <p className="mt-0.5 truncate text-[11px] text-amber-500/90">
+        <p className="mt-0.5 truncate text-[11px] text-night-700">
           {item.pastorName}
           {item.church ? ` · ${item.church}` : ""}
         </p>
-        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-500">
+        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-400">
           <Headphones size={11} /> {item.plays || 0}회
         </p>
       </Link>
@@ -50,11 +50,11 @@ export default function FeedRow({ title, subtitle, items, ranked = false, playin
   return (
     <section className="py-4">
       <div className="px-4">
-        <h2 className="text-base font-semibold text-stone-100">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-xs text-stone-500">{subtitle}</p>}
+        <h2 className="text-base font-semibold text-stone-900">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-xs text-stone-400">{subtitle}</p>}
       </div>
       {items.length === 0 ? (
-        <p className="mx-4 mt-3 rounded-xl bg-stone-900 px-4 py-6 text-center text-xs text-stone-500">{emptyText}</p>
+        <p className="mx-4 mt-3 rounded-xl bg-stone-100 px-4 py-6 text-center text-xs text-stone-400">{emptyText}</p>
       ) : (
         <div className="mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto scroll-px-4 px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {items.map((item, i) => (

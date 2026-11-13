@@ -100,7 +100,7 @@ function EditForm({ item, onCancel, onSave }) {
             {newAudio ? (
               <>
                 새 파일: <span className="font-medium text-stone-800">{newAudio.file.name}</span> ·{" "}
-                {TimeFormat.duration(newAudio.durationSeconds)} <span className="text-amber-700">(저장하면 바뀌어요)</span>
+                {TimeFormat.duration(newAudio.durationSeconds)} <span className="text-night-700">(저장하면 바뀌어요)</span>
               </>
             ) : (
               <>지금 파일 · {item.duration}</>
@@ -141,7 +141,7 @@ function EditForm({ item, onCancel, onSave }) {
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
+          className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-night-500 focus:outline-none"
         />
       </div>
       <div>
@@ -149,7 +149,7 @@ function EditForm({ item, onCancel, onSave }) {
         <input
           value={tagsInput}
           onChange={(e) => setTagsInput(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
+          className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-night-500 focus:outline-none"
         />
       </div>
       <div>
@@ -158,7 +158,7 @@ function EditForm({ item, onCancel, onSave }) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
-          className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
+          className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-night-500 focus:outline-none"
         />
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
@@ -175,7 +175,7 @@ function EditForm({ item, onCancel, onSave }) {
           type="button"
           onClick={handleSave}
           disabled={isSaving}
-          className="rounded-full bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+          className="rounded-full bg-night-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-night-800 disabled:cursor-not-allowed disabled:bg-stone-300"
         >
           {isSaving ? "저장 중…" : "저장"}
         </button>
@@ -232,7 +232,7 @@ export default function ManageContentPanel() {
         </div>
       )}
       {notice && (
-        <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-700">
+        <div className="flex items-center gap-2 rounded-xl bg-night-50 px-4 py-3 text-xs text-night-700">
           <AlertCircle size={14} /> {notice}
         </div>
       )}
@@ -250,7 +250,7 @@ export default function ManageContentPanel() {
               />
               <div className="min-w-0 flex-1">
                 {(item.pastorName || item.church) && (
-                  <p className="truncate text-sm font-medium text-amber-700">
+                  <p className="truncate text-sm font-medium text-night-700">
                     {[item.pastorName, item.church].filter(Boolean).join(" · ")}
                   </p>
                 )}

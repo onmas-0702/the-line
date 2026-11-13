@@ -79,7 +79,7 @@ function GuideSheet({ prompt, onClose, onDone }) {
           </button>
         </div>
 
-        {guide.intro && <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-800">{guide.intro}</p>}
+        {guide.intro && <p className="mt-4 rounded-xl bg-night-50 px-4 py-3 text-sm leading-relaxed text-night-800">{guide.intro}</p>}
 
         {guide.steps.length > 0 && (
           <ol className="mt-4 space-y-3">
@@ -87,7 +87,7 @@ function GuideSheet({ prompt, onClose, onDone }) {
               const Icon = STEP_ICONS[step.icon] || CheckCircle2;
               return (
                 <li key={step.text} className="flex items-start gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-700 text-sm font-bold text-white">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-night-700 text-sm font-bold text-white">
                     {i + 1}
                   </span>
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-700">
@@ -104,7 +104,7 @@ function GuideSheet({ prompt, onClose, onDone }) {
           <button
             type="button"
             onClick={runAction}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-amber-700 py-3 text-sm font-semibold text-white hover:bg-amber-800"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-night-700 py-3 text-sm font-semibold text-white hover:bg-night-800"
           >
             {ActionIcon && <ActionIcon size={16} />} {guide.action.label}
           </button>
@@ -168,7 +168,7 @@ export default function InstallBanner() {
             <button
               type="button"
               onClick={() => setIsSheetOpen(true)}
-              className="shrink-0 rounded-full bg-amber-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-amber-800"
+              className="shrink-0 rounded-full bg-night-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-night-800"
             >
               {guide.action?.kind === "install" ? "설치하기" : "방법 보기"}
             </button>

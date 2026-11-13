@@ -120,14 +120,14 @@ function JournalItem({ entry, repos, onUpdated, onRemoved }) {
             onChange={(e) => setDraft(new JournalDraft(e.target.value))}
             rows={4}
             maxLength={JournalDraft.MAX_LENGTH}
-            className="w-full rounded-xl border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-600"
+            className="w-full rounded-xl border border-stone-300 px-3 py-2 text-sm outline-none focus:border-night-600"
           />
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="mt-1 flex justify-end gap-2 text-sm">
             <button type="button" onClick={() => setDraft(null)} className="rounded-full px-3 py-1 text-stone-500 hover:bg-stone-100">
               취소
             </button>
-            <button type="button" onClick={save} className="rounded-full bg-amber-700 px-3 py-1 font-medium text-white hover:bg-amber-800">
+            <button type="button" onClick={save} className="rounded-full bg-night-700 px-3 py-1 font-medium text-white hover:bg-night-800">
               저장
             </button>
           </div>

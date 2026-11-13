@@ -36,7 +36,7 @@ class Tone {
   }
   chip(active) {
     if (this.isImmersive) return active ? "bg-white/35 text-white" : "bg-white/15 text-white hover:bg-white/25";
-    return active ? "bg-amber-700 text-white" : "bg-stone-100 text-stone-700 hover:bg-stone-200";
+    return active ? "bg-night-700 text-white" : "bg-stone-100 text-stone-700 hover:bg-stone-200";
   }
 }
 
@@ -172,7 +172,7 @@ function JournalPanel({ item, tone }) {
           type="button"
           onClick={save}
           disabled={busy}
-          className="rounded-full bg-amber-700 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-amber-800 disabled:opacity-60"
+          className="rounded-full bg-night-700 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-night-800 disabled:opacity-60"
         >
           {busy ? "저장 중…" : "일기 저장"}
         </button>
@@ -266,7 +266,7 @@ function CommentSection({ item, tone }) {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-700 text-white transition hover:bg-amber-800 disabled:opacity-60"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-night-700 text-white transition hover:bg-night-800 disabled:opacity-60"
                   aria-label="남기기"
                 >
                   <Send size={15} strokeWidth={1.5} />

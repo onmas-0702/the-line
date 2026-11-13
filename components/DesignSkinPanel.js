@@ -95,7 +95,7 @@ export default function DesignSkinPanel() {
           </p>
         </div>
         {!isSupabaseConfigured && (
-          <p className="mt-3 text-xs text-amber-600">
+          <p className="mt-3 text-xs text-night-600">
             서버(Supabase)가 아직 연결되지 않아, 지금 적용하면 이 브라우저 탭에서만
             보이고 새로고침하면 사라져요.
           </p>
@@ -146,7 +146,7 @@ export default function DesignSkinPanel() {
                 type="button"
                 onClick={handleApply}
                 disabled={isApplying}
-                className="flex-1 rounded-full bg-amber-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+                className="flex-1 rounded-full bg-night-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-night-800 disabled:cursor-not-allowed disabled:bg-stone-300"
               >
                 {isApplying ? "적용 중…" : "이 이미지로 적용하기"}
               </button>

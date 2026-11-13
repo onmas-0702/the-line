@@ -3,10 +3,10 @@
 // 색 그라데이션으로 채웁니다.
 
 const COVER_TONES = [
-  "from-amber-200 to-amber-400",
+  "from-night-200 to-night-400",
   "from-stone-200 to-stone-400",
-  "from-orange-200 to-amber-300",
-  "from-yellow-100 to-amber-300",
+  "from-orange-200 to-night-300",
+  "from-yellow-100 to-night-300",
   "from-rose-100 to-orange-300",
 ];
 

@@ -47,7 +47,7 @@ function CommunityCard({ info }) {
           <span className="text-xs text-stone-500">
             참여코드 <span className="ml-1 font-mono text-sm font-semibold tracking-wider text-stone-800">{info.entryCode}</span>
           </span>
-          <button type="button" onClick={copyCode} className="flex items-center gap-1 text-xs font-medium text-amber-700">
+          <button type="button" onClick={copyCode} className="flex items-center gap-1 text-xs font-medium text-night-700">
             <Copy size={12} /> {copied ? "복사됨" : "복사"}
           </button>
         </div>

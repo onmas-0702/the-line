@@ -9,7 +9,7 @@ import NoticeEditor from "@/components/community/NoticeEditor";
 import { CommunityInfo } from "@/lib/community";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
-const INPUT = "w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-amber-600";
+const INPUT = "w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-night-600";
 
 export default function CommunityPanel() {
   const { repos } = useChannel();
@@ -74,7 +74,7 @@ function OpenChatEditor() {
           className={INPUT}
         />
         <div className="flex justify-end">
-          <button type="button" onClick={save} className="rounded-full bg-amber-700 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-amber-800">
+          <button type="button" onClick={save} className="rounded-full bg-night-700 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-night-800">
             저장
           </button>
         </div>

@@ -25,20 +25,20 @@ function TrackRow({ track, selected, onSelect, previewing, onPreview, onDelete, 
   }
 
   return (
-    <div className={`rounded-lg border p-2 transition ${selected ? "border-amber-700 bg-amber-50" : "border-stone-200 bg-white"}`}>
+    <div className={`rounded-lg border p-2 transition ${selected ? "border-night-700 bg-night-50" : "border-stone-200 bg-white"}`}>
       <div className="flex items-start gap-2">
         <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
-          <input type="radio" name="bgTrack" checked={selected} onChange={onSelect} className="mt-1.5 accent-amber-700" />
+          <input type="radio" name="bgTrack" checked={selected} onChange={onSelect} className="mt-1.5 accent-night-700" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm text-stone-800">{track.name}</span>
             <span
               className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] ${
-                classification.isClassified ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-500"
+                classification.isClassified ? "bg-night-100 text-night-800" : "bg-stone-100 text-stone-500"
               }`}
             >
               {classification.label}
             </span>
-            {previewing && <span className="ml-1.5 text-[11px] text-amber-600">미리듣기 중…</span>}
+            {previewing && <span className="ml-1.5 text-[11px] text-night-600">미리듣기 중…</span>}
           </span>
         </label>
         <span className="mt-1 shrink-0 text-xs tabular-nums text-stone-400">{track.duration}</span>
@@ -57,7 +57,7 @@ function TrackRow({ track, selected, onSelect, previewing, onPreview, onDelete, 
               setDraft(classification);
               setIsEditing((v) => !v);
             }}
-            className="mt-1 shrink-0 text-stone-400 hover:text-amber-700"
+            className="mt-1 shrink-0 text-stone-400 hover:text-night-700"
             aria-label="분류 변경"
             title="분류 변경"
           >
@@ -94,7 +94,7 @@ function TrackRow({ track, selected, onSelect, previewing, onPreview, onDelete, 
               type="button"
               onClick={save}
               disabled={isSaving}
-              className="rounded-full bg-amber-700 px-3 py-1 text-xs font-medium text-white disabled:bg-stone-300"
+              className="rounded-full bg-night-700 px-3 py-1 text-xs font-medium text-white disabled:bg-stone-300"
             >
               {isSaving ? "저장 중…" : "분류 저장"}
             </button>
@@ -149,18 +149,18 @@ function UploadForm({ onUpload, notice }) {
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+    <div className="space-y-3 rounded-xl border border-night-200 bg-night-50/60 p-3">
       <div>
         <label className="block text-xs font-medium text-stone-500">이름</label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
+          className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-700 focus:border-night-500 focus:outline-none"
         />
       </div>
       <ClassificationPicker value={classification} onChange={setClassification} />
-      {notice && <p className="text-xs text-amber-600">{notice}</p>}
+      {notice && <p className="text-xs text-night-600">{notice}</p>}
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">
         <button
@@ -175,7 +175,7 @@ function UploadForm({ onUpload, notice }) {
           type="button"
           onClick={submit}
           disabled={isUploading || !name.trim()}
-          className="rounded-full bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-800 disabled:bg-stone-300"
+          className="rounded-full bg-night-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-night-800 disabled:bg-stone-300"
         >
           {isUploading ? "업로드 중…" : "올리기"}
         </button>

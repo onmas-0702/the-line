@@ -57,7 +57,7 @@ function OfficialSampleLibrary({ selectedTrackId, onSelect }) {
                       name="bgTrack"
                       checked={selectedTrackId === track.id}
                       onChange={() => onSelect(track.id)}
-                      className="accent-amber-700"
+                      className="accent-night-700"
                     />
                     <span className="flex-1 text-sm text-stone-700">{track.name}</span>
                     <span className="text-xs text-stone-400">{track.duration}</span>
@@ -166,7 +166,7 @@ export default function BackgroundMusicPicker({ selectedTrackId, onSelect, volum
         </div>
       ) : (
         <p className="flex items-center gap-1.5 text-sm font-semibold text-stone-800">
-          <ShieldCheck size={15} className="text-amber-700" /> {activeSection.label}
+          <ShieldCheck size={15} className="text-night-700" /> {activeSection.label}
         </p>
       )}
 

@@ -8,7 +8,7 @@ import { Pin, PinOff, Trash2 } from "lucide-react";
 import { useViewer } from "@/components/ViewerProvider";
 import { NoticeDraft } from "@/lib/community";
 
-const INPUT = "w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-amber-600";
+const INPUT = "w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-night-600";
 
 export default function NoticeEditor({ repo, showHeading = true }) {
   const viewer = useViewer();
@@ -75,14 +75,14 @@ export default function NoticeEditor({ repo, showHeading = true }) {
         />
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-1.5 text-xs text-stone-600">
-            <input type="checkbox" checked={draft.isPinned} onChange={(e) => setDraft(draft.with({ isPinned: e.target.checked }))} className="accent-amber-700" />
+            <input type="checkbox" checked={draft.isPinned} onChange={(e) => setDraft(draft.with({ isPinned: e.target.checked }))} className="accent-night-700" />
             맨 위에 고정
           </label>
           <button
             type="button"
             onClick={post}
             disabled={busy}
-            className="rounded-full bg-amber-700 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-amber-800 disabled:opacity-60"
+            className="rounded-full bg-night-700 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-night-800 disabled:opacity-60"
           >
             {busy ? "올리는 중…" : "공지 올리기"}
           </button>
@@ -96,7 +96,7 @@ export default function NoticeEditor({ repo, showHeading = true }) {
             <li key={notice.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
               <span className="min-w-0">
                 <span className="flex items-center gap-1 truncate text-sm text-stone-800">
-                  {notice.isPinned && <Pin size={12} className="shrink-0 text-amber-700" />} {notice.title}
+                  {notice.isPinned && <Pin size={12} className="shrink-0 text-night-700" />} {notice.title}
                 </span>
                 <span className="text-xs text-stone-400">{notice.dateLabel}</span>
               </span>

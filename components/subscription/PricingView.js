@@ -43,7 +43,7 @@ export default function PricingView({ viewer: viewerData, plans: planData }) {
       <ul className="space-y-2 rounded-2xl border border-stone-200 bg-white p-4">
         {BENEFITS.map(({ icon: Icon, text }) => (
           <li key={text} className="flex items-center gap-2.5 text-sm text-stone-700">
-            <Icon size={16} className="shrink-0 text-amber-700" /> {text}
+            <Icon size={16} className="shrink-0 text-night-700" /> {text}
           </li>
         ))}
       </ul>
@@ -67,14 +67,14 @@ export default function PricingView({ viewer: viewerData, plans: planData }) {
                   type="button"
                   onClick={() => setSelectedCode(plan.code)}
                   className={`relative rounded-2xl border p-4 text-left transition ${
-                    active ? "border-amber-700 bg-amber-50 ring-2 ring-amber-100" : "border-stone-200 bg-white hover:bg-stone-50"
+                    active ? "border-night-700 bg-night-50 ring-2 ring-night-100" : "border-stone-200 bg-white hover:bg-stone-50"
                   }`}
                 >
-                  {active && <Check size={16} className="absolute right-3 top-3 text-amber-700" />}
+                  {active && <Check size={16} className="absolute right-3 top-3 text-night-700" />}
                   <p className="text-sm font-medium text-stone-600">{plan.isYearly ? "연간" : "월간"}</p>
                   <p className="mt-1 text-lg font-semibold text-stone-900">{plan.priceLabel}</p>
                   <p className="text-xs text-stone-400">/ {plan.intervalLabel}</p>
-                  {savings > 0 && <p className="mt-2 text-xs font-medium text-amber-700">{savings.toLocaleString("ko-KR")}원 절약</p>}
+                  {savings > 0 && <p className="mt-2 text-xs font-medium text-night-700">{savings.toLocaleString("ko-KR")}원 절약</p>}
                 </button>
               );
             })}
@@ -89,7 +89,7 @@ export default function PricingView({ viewer: viewerData, plans: planData }) {
                 ))}
               </ul>
               <label className="mt-3 flex items-start gap-2 text-xs text-stone-700">
-                <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 accent-amber-700" />
+                <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 accent-night-700" />
                 위 내용과 <Link href="/terms" className="underline">이용약관</Link>·환불정책을 확인했고 정기결제에 동의합니다.
               </label>
             </div>
@@ -99,19 +99,19 @@ export default function PricingView({ viewer: viewerData, plans: planData }) {
             <button
               type="button"
               onClick={checkout}
-              className="w-full rounded-xl bg-amber-700 py-3 text-sm font-semibold text-white transition hover:bg-amber-800"
+              className="w-full rounded-xl bg-night-700 py-3 text-sm font-semibold text-white transition hover:bg-night-800"
             >
               {selected ? `${selected.priceLabel} 카드로 구독하기` : "구독하기"}
             </button>
           ) : (
             <Link
               href={AuthPaths.login(SubscriptionPaths.PRICING)}
-              className="block w-full rounded-xl bg-amber-700 py-3 text-center text-sm font-semibold text-white transition hover:bg-amber-800"
+              className="block w-full rounded-xl bg-night-700 py-3 text-center text-sm font-semibold text-white transition hover:bg-night-800"
             >
               로그인하고 구독하기
             </Link>
           )}
-          {message && <p className="text-center text-sm text-amber-700">{message}</p>}
+          {message && <p className="text-center text-sm text-night-700">{message}</p>}
         </>
       )}
     </div>

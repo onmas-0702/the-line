@@ -35,7 +35,7 @@ export default function LoginForm({ next, initialError = "", notice = "" }) {
       footer={
         <>
           아직 회원이 아니신가요?{" "}
-          <Link href={AuthPaths.signup(next)} className="font-medium text-amber-700 hover:underline">
+          <Link href={AuthPaths.signup(next)} className="font-medium text-night-700 hover:underline">
             회원가입
           </Link>
         </>

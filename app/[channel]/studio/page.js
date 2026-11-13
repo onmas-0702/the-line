@@ -372,7 +372,7 @@ export default function RecordPage() {
           직접 녹음하거나 파일을 업로드해서 짧은 나눔을 만들어보세요.
         </p>
         {!isSupabaseConfigured && (
-          <p className="mt-1 text-xs text-amber-600">
+          <p className="mt-1 text-xs text-night-600">
             서버(Supabase)가 아직 연결되지 않아 지금은 이 브라우저에만 임시로 저장됩니다.
           </p>
         )}
@@ -436,7 +436,7 @@ export default function RecordPage() {
                       ? "bg-red-600 animate-pulse"
                       : isPreparingMic
                       ? "bg-stone-400"
-                      : "bg-amber-700 hover:bg-amber-800"
+                      : "bg-night-700 hover:bg-night-800"
                   }`}
                   aria-label={isRecording ? "녹음 중지" : isPreparingMic ? "마이크 준비 취소" : "녹음 시작"}
                 >
@@ -557,7 +557,7 @@ export default function RecordPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="나눔 제목을 입력하세요"
-              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
+              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-night-500 focus:outline-none"
             />
           </div>
 
@@ -568,7 +568,7 @@ export default function RecordPage() {
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="예: 순종, 은혜, 위로"
-              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
+              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-night-500 focus:outline-none"
             />
           </div>
 
@@ -579,7 +579,7 @@ export default function RecordPage() {
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
               placeholder="이 나눔을 한두 문장으로 소개해주세요 (검색에 쓰입니다)"
-              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
+              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-night-500 focus:outline-none"
             />
           </div>
         </div>
@@ -590,7 +590,7 @@ export default function RecordPage() {
         <div className="mt-3 rounded-xl border border-dashed border-stone-300 bg-white p-4 text-center">
           <label className="block cursor-pointer text-sm text-stone-500">
             {scriptFile ? (
-              <span className="text-amber-700">{scriptFile.name}</span>
+              <span className="text-night-700">{scriptFile.name}</span>
             ) : (
               <>녹음에 사용한 대본 파일을 선택하세요 (.txt, .docx, .pdf)</>
             )}
@@ -604,7 +604,7 @@ export default function RecordPage() {
       </section>
 
       {saveError && (
-        <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        <div className="flex items-center gap-2 rounded-xl bg-night-50 px-4 py-3 text-sm text-night-700">
           <AlertCircle size={16} /> {saveError}
         </div>
       )}
@@ -620,7 +620,7 @@ export default function RecordPage() {
           type="button"
           onClick={handleSave}
           disabled={clipCount === 0 || isSaving}
-          className="rounded-full bg-amber-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+          className="rounded-full bg-night-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-night-800 disabled:cursor-not-allowed disabled:bg-stone-300"
         >
           {isSaving ? "믹싱 중…" : "업로드"}
         </button>

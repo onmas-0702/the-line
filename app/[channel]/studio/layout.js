@@ -20,7 +20,7 @@ export default async function StudioLayout({ children, params }) {
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
         <p className="text-base font-semibold text-stone-800">스튜디오는 채널 운영자만 쓸 수 있어요.</p>
         <p className="text-sm text-stone-500">운영자 계정으로 로그인했는지 확인해 주세요.</p>
-        <Link href={channel.path()} className="text-sm font-medium text-amber-700 hover:underline">
+        <Link href={channel.path()} className="text-sm font-medium text-night-700 hover:underline">
           {channel.name} 채널로 가기
         </Link>
       </div>

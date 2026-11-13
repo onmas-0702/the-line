@@ -55,7 +55,7 @@ export default function SignUpFormView({ next }) {
       footer={
         <>
           이미 회원이신가요?{" "}
-          <Link href={AuthPaths.login(next)} className="font-medium text-amber-700 hover:underline">
+          <Link href={AuthPaths.login(next)} className="font-medium text-night-700 hover:underline">
             로그인
           </Link>
         </>
@@ -79,7 +79,7 @@ export default function SignUpFormView({ next }) {
           onChange={update("passwordConfirm")}
         />
         <label className="flex items-start gap-2 pt-1 text-xs text-stone-600">
-          <input type="checkbox" checked={form.agreeTerms} onChange={update("agreeTerms")} className="mt-0.5 accent-amber-700" />
+          <input type="checkbox" checked={form.agreeTerms} onChange={update("agreeTerms")} className="mt-0.5 accent-night-700" />
           <span>
             <Link href="/terms" className="underline">이용약관</Link>과{" "}
             <Link href="/privacy" className="underline">개인정보 처리방침</Link>에 동의합니다. (필수)

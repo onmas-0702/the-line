@@ -69,9 +69,9 @@ function NoticeList() {
               >
                 <span className="min-w-0">
                   <span className="flex items-center gap-1.5 text-sm font-medium text-stone-800">
-                    {notice.isPinned && <Pin size={13} className="shrink-0 text-amber-700" />}
+                    {notice.isPinned && <Pin size={13} className="shrink-0 text-night-700" />}
                     <span className="truncate">{notice.title}</span>
-                    {notice.isRecent && <span className="shrink-0 rounded bg-amber-100 px-1 text-[10px] text-amber-800">NEW</span>}
+                    {notice.isRecent && <span className="shrink-0 rounded bg-night-100 px-1 text-[10px] text-night-800">NEW</span>}
                   </span>
                   <span className="mt-0.5 block text-xs text-stone-400">
                     {notice.channelName} · {notice.dateLabel}

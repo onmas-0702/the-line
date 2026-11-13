@@ -25,7 +25,7 @@ export default function MyPageOverview() {
                 {status.periodEndLabel && <span className="font-normal text-stone-400"> · {status.periodEndLabel}까지</span>}
               </span>
             ) : (
-              <Link href={SubscriptionPaths.PRICING} className="font-medium text-amber-700 hover:underline">
+              <Link href={SubscriptionPaths.PRICING} className="font-medium text-night-700 hover:underline">
                 구독하기
               </Link>
             )}

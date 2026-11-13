@@ -36,7 +36,7 @@ export default function ContentPage() {
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
         <p className="text-sm text-stone-400">{isHydrated ? "콘텐츠를 찾을 수 없습니다." : "콘텐츠를 불러오는 중…"}</p>
         {isHydrated && (
-          <Link href={channel.path()} className="text-sm font-medium text-amber-700 hover:underline">
+          <Link href={channel.path()} className="text-sm font-medium text-night-700 hover:underline">
             {channel.name} 채널로 가기
           </Link>
         )}
@@ -75,7 +75,7 @@ export default function ContentPage() {
           className={`flex h-20 w-20 items-center justify-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-40 ${
             isImmersive
               ? "bg-white/20 text-white backdrop-blur-sm hover:bg-white/30"
-              : "bg-amber-700 text-white hover:bg-amber-800"
+              : "bg-night-700 text-white hover:bg-night-800"
           }`}
           aria-label={isPlaying ? "정지" : "재생"}
         >

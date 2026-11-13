@@ -13,7 +13,7 @@ export default function GatePrompt({ gate, action, className = "", tone = "light
   const isSignin = gate.needs === "signin";
   const href = isSignin ? AuthPaths.login(pathname) : SubscriptionPaths.PRICING;
   const text = isSignin ? `로그인하고 ${action}` : `구독하고 ${action}`;
-  const color = tone === "dark" ? "text-white underline" : "text-amber-700 hover:underline";
+  const color = tone === "dark" ? "text-white underline" : "text-night-700 hover:underline";
   return (
     <Link href={href} className={`text-xs font-medium ${color} ${className}`}>
       {text}

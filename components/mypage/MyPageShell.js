@@ -45,7 +45,7 @@ export default function MyPageShell({ children }) {
                 key={key}
                 href={path}
                 className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-                  active ? "bg-amber-700 text-white" : "bg-white text-stone-600 ring-1 ring-stone-200 hover:bg-stone-100"
+                  active ? "bg-night-700 text-white" : "bg-white text-stone-600 ring-1 ring-stone-200 hover:bg-stone-100"
                 }`}
               >
                 <Icon size={14} /> {label}

@@ -84,14 +84,14 @@ function ContentCard({ item, href, thumbnailUrl }) {
       <Link href={href} className="group block" aria-label={`${item.title} 듣기`}>
         <div className="relative">
           <ContentThumbnail item={item} imageUrl={thumbnailUrl} size="sm" className="aspect-square w-full transition group-hover:brightness-95" />
-          <span className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-amber-800 shadow">
+          <span className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-night-800 shadow">
             <Play size={11} className="ml-px" />
           </span>
         </div>
-        <h3 className="mt-1.5 line-clamp-2 text-xs font-semibold leading-snug text-stone-900 group-hover:text-amber-800">
+        <h3 className="mt-1.5 line-clamp-2 text-xs font-semibold leading-snug text-stone-900 group-hover:text-night-800">
           {item.title}
         </h3>
-        <p className="mt-0.5 truncate text-[11px] text-amber-700">
+        <p className="mt-0.5 truncate text-[11px] text-night-700">
           {item.pastorName}
           {item.scriptureReference ? ` · ${item.scriptureReference}` : ""}
         </p>

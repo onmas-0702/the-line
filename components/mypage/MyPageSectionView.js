@@ -30,7 +30,7 @@ export default function MyPageSectionView({ sectionKey }) {
           <p className="text-sm text-stone-600">{section.labelFor(viewer)}은(는) 구독자 전용 메뉴예요.</p>
           <Link
             href={SubscriptionPaths.PRICING}
-            className="rounded-full bg-amber-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
+            className="rounded-full bg-night-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-night-800"
           >
             구독 안내 보기
           </Link>

@@ -160,7 +160,7 @@ export function ImageEditOverlay({ slot, compact = false, className = "" }) {
                   type="button"
                   onClick={editor.apply}
                   disabled={editor.isApplying}
-                  className="flex-1 rounded-full bg-amber-700 py-2 text-sm font-medium text-white transition hover:bg-amber-800 disabled:bg-stone-300"
+                  className="flex-1 rounded-full bg-night-700 py-2 text-sm font-medium text-white transition hover:bg-night-800 disabled:bg-stone-300"
                 >
                   {editor.isApplying ? "적용 중…" : "적용하기"}
                 </button>
@@ -223,7 +223,7 @@ export function ChannelImagePanel({ slot }) {
               type="button"
               onClick={editor.apply}
               disabled={editor.isApplying}
-              className="rounded-full bg-amber-700 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-amber-800 disabled:bg-stone-300"
+              className="rounded-full bg-night-700 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-night-800 disabled:bg-stone-300"
             >
               {editor.isApplying ? "적용 중…" : "이 이미지로 적용하기"}
             </button>

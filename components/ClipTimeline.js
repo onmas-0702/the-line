@@ -481,7 +481,7 @@ export default function ClipTimeline({
           type="button"
           onClick={togglePlay}
           disabled={totalSeconds === 0}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-700 text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-night-700 text-white hover:bg-night-800 disabled:cursor-not-allowed disabled:bg-stone-300"
           aria-label={isPlaying ? "정지" : "재생"}
         >
           {isPlaying ? <Pause size={14} /> : <Play size={14} />}
@@ -499,7 +499,7 @@ export default function ClipTimeline({
           }}
           className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
             cutMode
-              ? "border-amber-700 bg-amber-50 text-amber-700"
+              ? "border-night-700 bg-night-50 text-night-700"
               : "border-stone-300 text-stone-600 hover:bg-stone-100"
           }`}
         >
@@ -560,11 +560,11 @@ export default function ClipTimeline({
         className="relative mt-4 h-3 cursor-pointer rounded-full bg-stone-100"
       >
         <div
-          className="absolute top-0 h-3 rounded-full bg-amber-200"
+          className="absolute top-0 h-3 rounded-full bg-night-200"
           style={{ width: `${playheadPercent}%` }}
         />
         <div
-          className="absolute -top-1 h-5 w-0.5 bg-amber-700"
+          className="absolute -top-1 h-5 w-0.5 bg-night-700"
           style={{ left: `${playheadPercent}%` }}
         />
       </div>
@@ -616,7 +616,7 @@ export default function ClipTimeline({
                 onClick={(e) => handleSegmentClick(e, seg, idx)}
                 style={{ width: `${widthPercent}%` }}
                 className={`flex h-full min-w-[16px] items-center justify-center border-2 border-dashed text-[10px] text-stone-400 transition ${
-                  isSelected ? "border-amber-600 bg-amber-50" : "border-stone-300 bg-stone-50"
+                  isSelected ? "border-night-600 bg-night-50" : "border-stone-300 bg-stone-50"
                 }`}
                 title="빈 공간 — 선택 후 삭제하면 옆 클립끼리 이어붙습니다"
               >
@@ -639,7 +639,7 @@ export default function ClipTimeline({
               onMouseLeave={handleSegmentMouseLeave}
               style={{ width: `${widthPercent}%`, ...(cutMode ? { cursor: SCISSORS_CURSOR } : {}) }}
               className={`group relative flex h-full min-w-[96px] cursor-pointer flex-col justify-end overflow-hidden rounded-md border-2 px-1 pb-1 transition ${
-                isSelected ? "border-amber-700 bg-amber-50" : "border-stone-200 bg-stone-50 hover:border-stone-300"
+                isSelected ? "border-night-700 bg-night-50" : "border-stone-200 bg-stone-50 hover:border-stone-300"
               }`}
               title={Segment.label(seg, idx)}
             >
@@ -668,7 +668,7 @@ export default function ClipTimeline({
                 {seg.waveform.map((v, i) => (
                   <span
                     key={i}
-                    className={`w-full rounded-sm ${isSelected ? "bg-amber-500" : "bg-amber-300"}`}
+                    className={`w-full rounded-sm ${isSelected ? "bg-night-500" : "bg-night-300"}`}
                     style={{ height: `${Math.min(100, v * effectiveGain)}%` }}
                   />
                 ))}
@@ -685,7 +685,7 @@ export default function ClipTimeline({
               >
                 <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-stone-400/50 group-hover:bg-stone-500/70" />
                 <div
-                  className="pointer-events-none absolute left-1/2 flex h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-amber-600 shadow"
+                  className="pointer-events-none absolute left-1/2 flex h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-night-600 shadow"
                   style={{ top: `${gainHandleTopPercent}%` }}
                 >
                   <GripHorizontal size={8} className="text-white" />
@@ -751,7 +751,7 @@ export default function ClipTimeline({
           className={`pointer-events-none absolute inset-y-0 transition-all ${
             cutMode && snapActive
               ? "w-1 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.9)]"
-              : "w-0.5 bg-amber-700/70"
+              : "w-0.5 bg-night-700/70"
           }`}
           style={{ left: `${playheadPercent}%` }}
         />

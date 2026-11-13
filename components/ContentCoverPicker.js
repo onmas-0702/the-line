@@ -159,7 +159,7 @@ export default function ContentCoverPicker({ value, onChange, disabled = false }
     <div className="flex items-start gap-4">
       <div className="w-28 shrink-0">
         <div
-          className={`aspect-square w-full rounded-2xl bg-gradient-to-br from-amber-200 to-amber-400 bg-cover bg-center ${value.hasImage ? "" : "opacity-60"}`}
+          className={`aspect-square w-full rounded-2xl bg-gradient-to-br from-night-200 to-night-400 bg-cover bg-center ${value.hasImage ? "" : "opacity-60"}`}
           style={previewUrl ? { backgroundImage: `url(${previewUrl})` } : undefined}
           role="img"
           aria-label="배경이미지 미리보기"

@@ -13,7 +13,7 @@ export function Chip({ active, onClick, children, size = "md" }) {
       aria-pressed={active}
       className={`shrink-0 rounded-full border font-medium transition ${
         size === "sm" ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
-      } ${active ? "border-amber-700 bg-amber-700 text-white" : "border-stone-300 bg-white text-stone-600 hover:bg-stone-100"}`}
+      } ${active ? "border-night-700 bg-night-700 text-white" : "border-stone-300 bg-white text-stone-600 hover:bg-stone-100"}`}
     >
       {children}
     </button>

@@ -13,7 +13,7 @@ import { AuthPaths } from "@/lib/auth";
 import { MyPageMenu } from "@/lib/myPage";
 
 const LANDING_BUTTON =
-  "inline-flex items-center gap-1.5 rounded-full border border-stone-600 px-3.5 py-1.5 text-[13px] font-medium tracking-tight text-stone-300 transition duration-300";
+  "inline-flex items-center gap-1.5 rounded-full border border-white/50 bg-black/25 px-3.5 py-1.5 text-[13px] font-medium tracking-tight text-white backdrop-blur-sm transition duration-300";
 
 const STYLES = {
   // 플랫폼 메인 — 가는 선 아이콘 + 글자, 모두 같은 색의 테두리 버튼
@@ -25,12 +25,12 @@ const STYLES = {
   nav: {
     wrap: "flex items-center gap-1.5",
     outline: "rounded-full border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-500 transition hover:bg-stone-100",
-    solid: "rounded-full bg-amber-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-800",
+    solid: "rounded-full bg-night-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-night-800",
   },
   navIcon: {
     wrap: "flex items-center gap-1.5",
     outline: "flex h-9 w-9 items-center justify-center rounded-full border border-stone-300 text-stone-500",
-    solid: "flex h-9 w-9 items-center justify-center rounded-full bg-amber-700 text-white",
+    solid: "flex h-9 w-9 items-center justify-center rounded-full bg-night-700 text-white",
   },
   chip: {
     wrap: "flex items-center gap-1.5",

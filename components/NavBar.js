@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Home, Mic } from "lucide-react";
 import AccountMenu from "@/components/auth/AccountMenu";
 import { useChannel } from "@/components/ChannelProvider";
+import { titleEn, titleKo } from "@/components/common/titleFonts";
 import { useAppStore } from "@/lib/store";
 
 // 채널 안의 메뉴 — 실제 주소는 채널마다 /{채널주소}/… 로 붙습니다. 스튜디오 메뉴는
@@ -32,12 +33,10 @@ export default function NavBar() {
       <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <Link href={channel.path()} className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-700 text-sm font-semibold text-white">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-night-700 text-sm font-semibold text-white">
               은
             </span>
-            <span className="text-sm font-semibold text-stone-800 sm:text-base">
-              {channel.name}
-            </span>
+            <ChannelTitle name={channel.name} />
           </Link>
 
           <nav className="hidden items-center gap-1 sm:flex sm:gap-2">
@@ -49,7 +48,7 @@ export default function NavBar() {
                   href={link.href}
                   className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
                     active
-                      ? "bg-amber-700 text-white"
+                      ? "bg-night-700 text-white"
                       : "text-stone-600 hover:bg-stone-100"
                   }`}
                 >
@@ -78,7 +77,7 @@ export default function NavBar() {
                 key={link.href}
                 href={link.href}
                 className={`flex flex-1 flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[11px] font-medium transition ${
-                  active ? "text-amber-700" : "text-stone-500"
+                  active ? "text-night-700" : "text-stone-500"
                 }`}
               >
                 <Icon size={20} strokeWidth={active ? 2.4 : 2} />
@@ -136,5 +135,22 @@ function ImmersiveNav({ channel, links, pathname }) {
         </div>
       </nav>
     </>
+  );
+}
+
+/** 상단 채널 이름 — 이름 끝의 "더 라인"은 메인 제목처럼 영문 "The line"(이탤릭)으로 보여 줍니다. */
+function ChannelTitle({ name }) {
+  const SUFFIX = "더 라인";
+  const head = name.endsWith(SUFFIX) ? name.slice(0, -SUFFIX.length).trimEnd() : null;
+  return (
+    <span aria-label={name} className={`${titleKo.className} text-lg leading-none text-night-900 sm:text-xl`}>
+      {head === null ? (
+        name
+      ) : (
+        <>
+          {head}&nbsp;<span className={`${titleEn.className} text-[1.3em]`}>The line</span>
+        </>
+      )}
+    </span>
   );
 }

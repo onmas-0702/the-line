@@ -83,7 +83,7 @@ export default function SavedSection() {
                     </button>
                   )}
                   {item.kinds.includes(AudioMarkKind.SAVE) && (
-                    <button type="button" onClick={() => unmark(item, AudioMarkKind.SAVE)} className="p-1.5 text-amber-700" aria-label="담아두기 취소" title="담아두기 취소">
+                    <button type="button" onClick={() => unmark(item, AudioMarkKind.SAVE)} className="p-1.5 text-night-700" aria-label="담아두기 취소" title="담아두기 취소">
                       <Bookmark size={15} fill="currentColor" />
                     </button>
                   )}

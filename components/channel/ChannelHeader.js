@@ -37,7 +37,7 @@ function DescriptionEditor({ initial, onSave, onCancel }) {
         rows={3}
         maxLength={300}
         placeholder="채널을 한두 문장으로 소개해주세요"
-        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-amber-500 focus:outline-none"
+        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-night-500 focus:outline-none"
       />
       <div className="mt-1 flex items-center gap-2">
         <span className="text-[11px] text-stone-400">{text.length}/300</span>
@@ -45,7 +45,7 @@ function DescriptionEditor({ initial, onSave, onCancel }) {
           type="button"
           onClick={save}
           disabled={isSaving}
-          className="ml-auto flex items-center gap-1 rounded-full bg-amber-700 px-3 py-1 text-xs font-medium text-white disabled:bg-stone-300"
+          className="ml-auto flex items-center gap-1 rounded-full bg-night-700 px-3 py-1 text-xs font-medium text-white disabled:bg-stone-300"
         >
           <Check size={12} /> {isSaving ? "저장 중…" : "저장"}
         </button>
@@ -76,7 +76,7 @@ export default function ChannelHeader({ contentCount }) {
     <section>
       {/* 대표이미지(배너) — 가로 3:1 */}
       <div
-        className="relative aspect-[3/1] w-full overflow-hidden rounded-2xl bg-gradient-to-br from-amber-200 via-amber-100 to-stone-200 bg-cover bg-center"
+        className="relative aspect-[3/1] w-full overflow-hidden rounded-2xl bg-gradient-to-br from-night-200 via-night-100 to-stone-200 bg-cover bg-center"
         style={artwork.bannerUrl ? { backgroundImage: `url(${artwork.bannerUrl})` } : undefined}
       >
         {canDesign && <ImageEditOverlay slot={ChannelImageSlot.BANNER} className="bottom-2 right-2" />}
@@ -85,7 +85,7 @@ export default function ChannelHeader({ contentCount }) {
       <div className="mt-4 flex items-start gap-4">
         {/* 네모 로고 — 정사각형 */}
         <div
-          className="relative aspect-square w-20 shrink-0 overflow-hidden rounded-2xl bg-amber-700 bg-cover bg-center shadow-sm sm:w-28"
+          className="relative aspect-square w-20 shrink-0 overflow-hidden rounded-2xl bg-night-700 bg-cover bg-center shadow-sm sm:w-28"
           style={artwork.logoUrl ? { backgroundImage: `url(${artwork.logoUrl})` } : undefined}
         >
           {!artwork.logoUrl && (
@@ -142,7 +142,7 @@ export default function ChannelHeader({ contentCount }) {
           <>
             <Link
               href={channel.studioPath()}
-              className="flex items-center gap-1.5 rounded-full bg-amber-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
+              className="flex items-center gap-1.5 rounded-full bg-night-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-night-800"
             >
               <Clapperboard size={15} /> 스튜디오
             </Link>

@@ -26,7 +26,7 @@ export default function ForgotPasswordForm() {
       title="비밀번호 찾기"
       subtitle="가입한 이메일로 비밀번호를 다시 정하는 링크를 보내드려요."
       footer={
-        <Link href={AuthPaths.LOGIN} className="font-medium text-amber-700 hover:underline">
+        <Link href={AuthPaths.LOGIN} className="font-medium text-night-700 hover:underline">
           로그인으로 돌아가기
         </Link>
       }

@@ -56,7 +56,7 @@ export default function StaffPanel() {
   return (
     <div className="space-y-8">
       {viewer.isPreviewAdmin && (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <p className="rounded-xl border border-night-200 bg-night-50 px-3 py-2 text-xs text-night-800">
           임시 관리자 모드예요. 운영자 지정은 실제 소유자 계정으로 로그인해야 저장돼요.
         </p>
       )}
@@ -71,14 +71,14 @@ export default function StaffPanel() {
             value={invite.email}
             onChange={(e) => setInvite(invite.with({ email: e.target.value }))}
             placeholder="운영자로 지정할 회원의 이메일"
-            className="w-full rounded-xl border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-600"
+            className="w-full rounded-xl border border-stone-300 px-3 py-2 text-sm outline-none focus:border-night-600"
           />
           <PermissionPicker selected={invite.permissions} onToggle={(key) => setInvite(invite.toggled(key))} />
           <div className="flex justify-end">
             <button
               type="submit"
               disabled={busy}
-              className="rounded-full bg-amber-700 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-amber-800 disabled:opacity-60"
+              className="rounded-full bg-night-700 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-night-800 disabled:opacity-60"
             >
               {busy ? "지정하는 중…" : "운영자로 지정"}
             </button>
@@ -120,12 +120,12 @@ function PermissionPicker({ selected, onToggle, disabled = false }) {
             onClick={() => onToggle(permission.key)}
             aria-pressed={on}
             className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-left transition disabled:cursor-default ${
-              on ? "border-amber-600 bg-amber-50" : "border-stone-200 bg-white hover:bg-stone-50"
+              on ? "border-night-600 bg-night-50" : "border-stone-200 bg-white hover:bg-stone-50"
             }`}
           >
             <span
               className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                on ? "border-amber-700 bg-amber-700 text-white" : "border-stone-300"
+                on ? "border-night-700 bg-night-700 text-white" : "border-stone-300"
               }`}
             >
               {on && <Check size={11} strokeWidth={3} />}
@@ -168,7 +168,7 @@ function StaffRow({ member, repo, onChanged }) {
             {member.displayName || "이름 없음"}
             <span
               className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                member.isOwner ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-600"
+                member.isOwner ? "bg-night-100 text-night-800" : "bg-stone-100 text-stone-600"
               }`}
             >
               {StaffRole.label(member.role)}
@@ -194,7 +194,7 @@ function StaffRow({ member, repo, onChanged }) {
                 <button
                   type="button"
                   onClick={save}
-                  className="rounded-full bg-amber-700 px-3.5 py-1 text-xs font-medium text-white hover:bg-amber-800"
+                  className="rounded-full bg-night-700 px-3.5 py-1 text-xs font-medium text-white hover:bg-night-800"
                 >
                   변경 저장
                 </button>
