@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Mic, Upload, CheckCircle2, AlertCircle, Undo2 } from "lucide-react";
 import CommunityPanel from "@/components/studio/CommunityPanel";
+import GalleryStudioPanel from "@/components/studio/GalleryStudioPanel";
 import StaffPanel from "@/components/studio/StaffPanel";
 import StudioTabBar from "@/components/studio/StudioTabBar";
 import { useViewer } from "@/components/ViewerProvider";
@@ -35,6 +36,7 @@ export default function RecordPage() {
   const visibleTabs = StudioTab.visibleFor({
     canUse: (key) => AccessPolicy.canUseStudio(viewer, channel, key),
     isOwner: AccessPolicy.canManageStaff(viewer, channel),
+    isPlatform: channel.isPlatform,
   });
   const requestedTab = useSearchParams().get("tab");
   const [selectedTab, setMainTab] = useState(requestedTab);
@@ -358,6 +360,8 @@ export default function RecordPage() {
         </p>
       ) : mainTab === "staff" ? (
         <StaffPanel />
+      ) : mainTab === "gallery" ? (
+        <GalleryStudioPanel />
       ) : mainTab === "community" ? (
         <CommunityPanel />
       ) : mainTab === "design" ? (

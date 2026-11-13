@@ -4,23 +4,21 @@
 //   1. 상단 중앙: 플랫폼 표기(로고 자리)
 //   2. 그 아래 오른쪽: 로그인 · 회원가입
 //   3. 중심부: 최신 / 많이 들은 / 자주 듣는 메신저 콘텐츠 (옆으로 넘겨보기, 개수 조절)
-//   4. 배너 광고 · 영상 콘텐츠 자리(준비 중)
+//   4. 이미지 갤러리(구독자는 원본·모바일 배경이미지 다운로드, 마이 갤러리 담기)
 //   5. 하단: 제작사 정보 · 환불정책 · 연락처
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Radio } from "lucide-react";
-import AccountMenu from "@/components/auth/AccountMenu";
+import GallerySection from "@/components/gallery/GallerySection";
 import FeedRow from "@/components/landing/FeedRow";
+import LandingHeader from "@/components/landing/LandingHeader";
 import PlatformFooter from "@/components/landing/PlatformFooter";
-import { titleEn, titleKo } from "@/components/common/titleFonts";
 import { AudioRepository } from "@/lib/audioStorage";
 import { Channel, ChannelRepository, ChannelSlug } from "@/lib/channel";
 import { ChannelThumbnails, FeedSections, ListeningHistory } from "@/lib/feed";
 import { AudioMapper } from "@/lib/mappers";
 import { SiteSettingsRepository } from "@/lib/siteSettings";
-import { initialAudios, PLATFORM_TITLE } from "@/lib/mockData";
+import { initialAudios } from "@/lib/mockData";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 const COUNT_STORAGE_KEY = "the-line:landing:count";
@@ -152,25 +150,7 @@ export default function LandingPage() {
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col bg-stone-50">
-      {/* 상단 밤하늘 — 그림 아래쪽 마을이 로그인 버튼 높이에서 시작하도록 그림을 아래 기준으로 맞춤.
-          버튼 영역은 어두운 그림 위라서 --surface를 밤색으로 바꿔 둡니다(눌렀을 때 반전 색). */}
-      <header className="relative isolate flex h-[180px] flex-col justify-end overflow-hidden px-4 pb-4 [--surface:#0b1530] sm:h-[204px] sm:pb-6">
-        <Image
-          src="/hero-night-village.webp"
-          alt=""
-          fill
-          priority
-          sizes="(min-width: 768px) 768px, 100vw"
-          className="-z-10 object-cover object-bottom"
-        />
-        <h1
-          aria-label={PLATFORM_TITLE}
-          className={`${titleKo.className} flex flex-1 items-center justify-center text-center text-[29px] leading-none text-white [text-shadow:0_1px_8px_rgb(0_0_0/0.5)]`}
-        >
-          은혜의 밤&nbsp;<span className={`${titleEn.className} text-[45px]`}>The line</span>
-        </h1>
-        <AccountMenu variant="landing" leading={[{ href: `/${ChannelSlug.DEFAULT}`, label: "마이 채널", icon: Radio }]} />
-      </header>
+      <LandingHeader />
 
       <main className="mt-4 flex-1">
         <div className="flex items-center justify-between px-4">
@@ -203,12 +183,8 @@ export default function LandingPage() {
           {...rowProps}
         />
 
-        {/* 배너 광고 · 영상 콘텐츠 자리 — 추후 진행 */}
-        <section className="px-4 py-4" aria-label="배너">
-          <div className="flex aspect-[16/7] w-full items-center justify-center rounded-2xl border-2 border-dashed border-stone-300 bg-white text-xs text-stone-400">
-            배너 광고 · 영상 콘텐츠 영역 (준비 중)
-          </div>
-        </section>
+        {/* 이미지 갤러리 — 구독자 이미지 다운로드 서비스(운영 채널 스튜디오 "갤러리" 탭에서 올림) */}
+        <GallerySection />
       </main>
 
       <PlatformFooter />

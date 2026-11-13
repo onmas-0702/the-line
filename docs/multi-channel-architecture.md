@@ -211,6 +211,13 @@ channels ──< audios ──< comments
    `PaymentGateway`의 하위 클래스(예: 토스페이먼츠 정기결제)를 사업자등록·PG 계약 후 추가합니다.
 5. **My Page** — 운영자 공지, 담아두기(검색), 감상일기(메시지와 짝, 검색), 오픈채팅 참여.
    운영자는 스튜디오 → 공지 탭에서 공지와 오픈채팅 링크를 관리합니다.
+6. **이미지 갤러리** (`0019_image_gallery.sql`, `lib/gallery.js`) — 플랫폼 메인 하단.
+   - 운영 채널 스튜디오 → **갤러리** 탭(콘텐츠 제작 권한)에서 올림. 브라우저가 원본에서
+     크게 보기용(긴 변 1600px)·썸네일(1:1)·모바일 배경이미지(1170×2532, JPG)를 만들고 원본은 그대로 보관.
+   - 누구나 썸네일·크게 보기(`/gallery`, `/gallery/{id}`, 탑 메뉴는 메인과 같음).
+   - 구독자만 **원본 다운로드 / 모바일 배경이미지** 받기와 **마이 갤러리** 담기(마이 페이지 → 갤러리).
+     원본·배경이미지는 비공개 버킷 `gallery` — 구독자에게만 5분짜리 서명 URL(`AccessPolicy.canUseGallery`,
+     DB 정책 `gallery_bucket_subscriber_read`). 휴대폰은 공유 창(사진에 저장), 앱 안 브라우저는 이미지를 열어 길게 눌러 저장.
 
 ### Supabase에 적용하는 순서
 
@@ -228,7 +235,7 @@ channels ──< audios ──< comments
    on conflict (channel_id, user_id) do update set role = 'owner';
    ```
 5. 운영자 계정으로 스튜디오 저장이 되는지 확인한 뒤 `0017_member_write_policies.sql`,
-   이어서 `0018_channel_staff.sql` 실행(기능별 권한·운영자 지정)
+   이어서 `0018_channel_staff.sql` 실행(기능별 권한·운영자 지정), 이미지 갤러리는 `0019_image_gallery.sql`
 6. 콘텐츠 제작자 등 함께 운영할 분은 먼저 회원가입 → 소유자가 스튜디오 → 운영자 탭에서
    그분의 이메일로 지정하고 맡길 기능을 고르기
 7. (결제 연동 전) 구독자를 직접 지급할 때:
