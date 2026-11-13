@@ -6,12 +6,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogIn, LogOut, UserPlus, UserRound } from "lucide-react";
+import { LogIn, LogOut, Sparkles, UserPlus, UserRound } from "lucide-react";
 import { useViewer } from "@/components/ViewerProvider";
 import { MemberTier } from "@/lib/access";
 import { AuthPaths } from "@/lib/auth";
 import { MyPageMenu } from "@/lib/myPage";
+import { MembershipOffer } from "@/lib/subscription";
 
+// 누르거나 마우스를 올리면 사이트 공통 "촛불 반전"(globals.css)으로 은은하게 밝아집니다.
 const LANDING_BUTTON =
   "inline-flex items-center gap-1.5 rounded-full border border-white/50 bg-black/25 px-3.5 py-1.5 text-[13px] font-medium tracking-tight text-white backdrop-blur-sm transition duration-300";
 
@@ -49,8 +51,9 @@ function LineLabel({ icon: Icon, children }) {
   );
 }
 
-/** leading: 로그인한 회원에게만 계정 버튼 앞에 보여 줄 링크들 [{ href, label, icon }] — 예: 메인 화면의 마이 채널 */
-export default function AccountMenu({ variant = "nav", leading = [] }) {
+/** leading: 로그인한 회원에게만 계정 버튼 앞에 보여 줄 링크들 [{ href, label, icon }] — 예: 메인 화면의 마이 채널
+ *  membership: 아직 구독자가 아닌 사람에게 "멤버십" 버튼을 함께 보여줄지(메인 화면) */
+export default function AccountMenu({ variant = "nav", leading = [], membership = false }) {
   const viewer = useViewer();
   const pathname = usePathname();
   const style = STYLES[variant];
@@ -62,6 +65,12 @@ export default function AccountMenu({ variant = "nav", leading = [] }) {
       {label(link.icon, link.label)}
     </Link>
   ));
+  const membershipLink =
+    membership && MembershipOffer.shouldOffer(viewer) ? (
+      <Link href={MembershipOffer.PATH} className={style.outline} aria-label={MembershipOffer.JOIN_LABEL}>
+        {label(Sparkles, MembershipOffer.LABEL)}
+      </Link>
+    ) : null;
 
   if (!viewer.isSignedIn) {
     return (
@@ -72,6 +81,7 @@ export default function AccountMenu({ variant = "nav", leading = [] }) {
         <Link href={AuthPaths.signup(pathname)} className={style.solid} aria-label="회원가입">
           {label(UserPlus, "회원가입")}
         </Link>
+        {membershipLink}
       </div>
     );
   }
@@ -80,6 +90,7 @@ export default function AccountMenu({ variant = "nav", leading = [] }) {
   return (
     <div className={style.wrap}>
       {leadingLinks}
+      {membershipLink}
       <Link href={MyPageMenu.BASE_PATH} className={style.solid} aria-label={MyPageMenu.TITLE} title={`${name} · ${MemberTier.label(viewer.tier)}`}>
         {label(UserRound, MyPageMenu.TITLE)}
       </Link>

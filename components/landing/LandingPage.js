@@ -13,6 +13,7 @@ import GallerySection from "@/components/gallery/GallerySection";
 import FeedRow from "@/components/landing/FeedRow";
 import LandingHeader from "@/components/landing/LandingHeader";
 import PlatformFooter from "@/components/landing/PlatformFooter";
+import MembershipNudge from "@/components/subscription/MembershipNudge";
 import { AudioRepository } from "@/lib/audioStorage";
 import { Channel, ChannelRepository, ChannelSlug } from "@/lib/channel";
 import { ChannelThumbnails, FeedSections, ListeningHistory } from "@/lib/feed";
@@ -151,6 +152,7 @@ export default function LandingPage() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col bg-stone-50">
       <LandingHeader />
+      <MembershipNudge />
 
       <main className="mt-4 flex-1">
         <div className="flex items-center justify-between px-4">

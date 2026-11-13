@@ -9,6 +9,7 @@ import StaffPanel from "@/components/studio/StaffPanel";
 import StudioTabBar from "@/components/studio/StudioTabBar";
 import { useViewer } from "@/components/ViewerProvider";
 import { AccessPolicy } from "@/lib/access";
+import { FeatureFlags } from "@/lib/featureFlags";
 import { StudioTab } from "@/lib/staff";
 import ClipTimeline from "@/components/ClipTimeline";
 import ContentCoverPicker from "@/components/ContentCoverPicker";
@@ -348,7 +349,7 @@ export default function RecordPage() {
       <div>
         <h1 className="text-lg font-semibold text-stone-900">스튜디오</h1>
         <p className="mt-1 text-sm text-stone-500">
-          나눔을 녹음·편집·저장하고, 채널 꾸미기와 구독자 공지·오픈채팅을 관리하세요.
+          나눔을 녹음·편집·저장하고, 채널 꾸미기와 구독자 {FeatureFlags.OPEN_CHAT ? "공지·오픈채팅" : "공지"}을 관리하세요.
         </p>
       </div>
 

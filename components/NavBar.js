@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Home, Mic } from "lucide-react";
 import AccountMenu from "@/components/auth/AccountMenu";
@@ -25,7 +26,7 @@ export default function NavBar() {
 
   const isImmersive = useIsImmersiveContent(pathname);
   if (isImmersive) {
-    return <ImmersiveNav channel={channel} links={links} pathname={pathname} />;
+    return <ImmersiveNav channel={channel} />;
   }
 
   return (
@@ -101,40 +102,65 @@ function useIsImmersiveContent(pathname) {
   return Boolean(item && artwork.thumbnailFor(item));
 }
 
-const CHIP = "flex items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition hover:bg-white/25";
 
-function ImmersiveNav({ channel, links, pathname }) {
+function ImmersiveNav({ channel }) {
   return (
     <>
       <header className="sticky top-0 z-10">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <Link href={channel.path()} className={`${CHIP} h-8 w-8 text-sm font-semibold`} aria-label={`${channel.name} 채널로`}>
-            은
-          </Link>
+        {/* 채널로 가는 "은" 버튼은 아래 홈 버튼과 겹쳐서 두지 않습니다 — 위에는 계정 버튼만. */}
+        <div className="mx-auto flex max-w-3xl items-center justify-end px-4 py-3">
           <AccountMenu variant="chip" />
         </div>
       </header>
 
-      <nav className="fixed inset-x-0 bottom-0 z-10 sm:hidden">
-        <div className="mx-auto flex max-w-3xl items-center justify-center gap-3 px-4 pb-4">
-          {links.map((link) => {
-            const Icon = link.icon;
-            const active = pathname === link.href;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="flex h-11 w-11 items-center justify-center rounded-full text-white backdrop-blur-sm transition"
-                style={{ backgroundColor: active ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)" }}
-                aria-label={link.label}
-              >
-                <Icon size={18} strokeWidth={active ? 2.4 : 2} />
-              </Link>
-            );
-          })}
+      {/* 아래 가운데에는 채널로 돌아가는 버튼 하나만 둡니다(스튜디오 마이크 버튼은 콘텐츠 화면에서 뺌).
+          콘텐츠 화면에는 위쪽 채널 버튼이 없어서, 넓은 화면(웹)에서도 보여 줍니다. */}
+      <nav data-immersive-nav className="fixed inset-x-0 bottom-0 z-10">
+        <div className="mx-auto flex max-w-3xl items-center justify-center px-4 pb-4">
+          <ChannelHomeButton channel={channel} />
         </div>
       </nav>
     </>
+  );
+}
+
+const HINT_MS = 3500; // 콘텐츠 화면을 연 직후 말풍선을 잠깐 보여 주는 시간
+
+/** 콘텐츠 화면 아래 가운데의 "채널 홈" 버튼 — 채널 로고(없으면 대표이미지, 그것도 없으면 이름 첫 글자)를
+ *  동그랗게 보여 주고, 위에 무슨 버튼인지 알려 주는 말풍선을 띄웁니다. 말풍선은 화면을 연 직후 잠깐
+ *  나타났다 사라지고(휴대폰), 넓은 화면에서는 마우스를 올리거나 키보드로 고르면 다시 보입니다. */
+function ChannelHomeButton({ channel }) {
+  const { artwork } = useAppStore();
+  const [isHinting, setIsHinting] = useState(true);
+  const imageUrl = artwork.logoUrl || artwork.bannerUrl;
+  const label = `${channel.name} 채널 홈`;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsHinting(false), HINT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="group relative">
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute bottom-full left-1/2 mb-2.5 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#f3d9a8]/90 px-3 py-1 text-xs font-medium text-[#17204a] shadow-[0_0_14px_rgb(255_180_100/0.35)] backdrop-blur-sm transition duration-300 group-hover:opacity-100 group-focus-within:opacity-100 ${
+          isHinting ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        채널 홈
+        {/* 말풍선 꼬리 */}
+        <span className="absolute left-1/2 top-full -translate-x-1/2 border-x-[6px] border-t-[6px] border-x-transparent border-t-[#f3d9a8]/90" />
+      </span>
+      <Link
+        href={channel.path()}
+        aria-label={label}
+        className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-white/15 bg-cover bg-center text-sm font-semibold text-white ring-1 ring-white/40 backdrop-blur-sm transition"
+        style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}
+      >
+        {!imageUrl && channel.name.slice(0, 1)}
+      </Link>
+    </div>
   );
 }
 

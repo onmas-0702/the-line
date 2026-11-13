@@ -40,7 +40,11 @@ export default function LandingHeader({ homeLink = false }) {
           {title}
         </h1>
       )}
-      <AccountMenu variant="landing" leading={[{ href: `/${ChannelSlug.DEFAULT}`, label: "마이 채널", icon: Radio }]} />
+      <AccountMenu
+        variant="landing"
+        membership
+        leading={[{ href: `/${ChannelSlug.DEFAULT}`, label: "마이 채널", icon: Radio }]}
+      />
     </header>
   );
 }

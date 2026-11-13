@@ -247,6 +247,24 @@ channels ──< audios ──< comments
      set status = 'active', current_period_end = excluded.current_period_end;
    ```
 
+### 임시 결제: KG이니시스 결제 링크
+
+정기결제(빌링) 정식 연동 전까지, 멤버십 가입 화면의 결제 버튼이 KG이니시스 상점관리자에서 만든
+**결제 링크**를 새 창으로 엽니다(`InicisLinkPaymentGateway`, `lib/subscription.js`).
+
+1. 이니시스 상점관리자에서 월간(5,000원)·연간(50,000원) 결제 링크를 만든다
+2. Vercel 환경변수에 넣고 다시 배포:
+   ```
+   NEXT_PUBLIC_PAYMENT_PROVIDER=inicis-link
+   NEXT_PUBLIC_INICIS_LINK_MEMBERSHIP_MONTHLY=https://…
+   NEXT_PUBLIC_INICIS_LINK_MEMBERSHIP_YEARLY=https://…
+   ```
+3. 결제 내역(구매자 이메일)을 확인하고 위 7번 SQL로 그 계정에 멤버십 지급
+   (`provider`는 'inicis-link', 기간은 월간 1개월·연간 1년)
+
+1회 결제라 자동 갱신이 아니며, 결제 전 안내 문구도 그에 맞춰 바뀝니다. 이 값을 지우면 다시
+"결제 준비 중"으로 돌아갑니다.
+
 ### 다음 단계
 
 - **카드 정기결제 연동** — 사업자등록·통신판매업 신고·PG 계약 후. 결제 완료 웹훅(Route

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useChannel } from "@/components/ChannelProvider";
 import NoticeEditor from "@/components/community/NoticeEditor";
 import { CommunityInfo } from "@/lib/community";
+import { FeatureFlags } from "@/lib/featureFlags";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 const INPUT = "w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-night-600";
@@ -14,12 +15,17 @@ const INPUT = "w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text
 export default function CommunityPanel() {
   const { repos } = useChannel();
   if (!isSupabaseConfigured) {
-    return <p className="text-sm text-stone-500">서버(Supabase)를 연결하면 공지와 오픈채팅을 관리할 수 있어요.</p>;
+    return (
+      <p className="text-sm text-stone-500">
+        서버(Supabase)를 연결하면 {FeatureFlags.OPEN_CHAT ? "공지와 오픈채팅을" : "공지를"} 관리할 수 있어요.
+      </p>
+    );
   }
   return (
     <div className="space-y-8">
       <NoticeEditor repo={repos.notices} />
-      <OpenChatEditor />
+      {/* 오픈채팅은 초기에는 운영하지 않아 숨겨 둡니다(FeatureFlags.OPEN_CHAT). */}
+      {FeatureFlags.OPEN_CHAT && <OpenChatEditor />}
     </div>
   );
 }

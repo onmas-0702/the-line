@@ -10,7 +10,8 @@ import { Check, Clapperboard, Palette, Pencil, X } from "lucide-react";
 import { ImageEditOverlay } from "@/components/channel/ChannelImageEditor";
 import { useChannel } from "@/components/ChannelProvider";
 import { useViewer } from "@/components/ViewerProvider";
-import { SubscriptionPaths } from "@/lib/subscription";
+import { FeatureFlags } from "@/lib/featureFlags";
+import { MembershipOffer } from "@/lib/subscription";
 import { AccessPolicy } from "@/lib/access";
 import { ChannelImageSlot } from "@/lib/channelProfile";
 import { useAppStore } from "@/lib/store";
@@ -99,8 +100,8 @@ export default function ChannelHeader({ contentCount }) {
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold leading-tight text-stone-900 sm:text-2xl">{channel.name}</h1>
           <p className="mt-1 text-xs text-stone-500">
-            <span className="text-stone-700">@{channel.slug}</span> · 구독자 {subscriberCount.toLocaleString()}명 · 콘텐츠{" "}
-            {contentCount}개
+            <span className="text-stone-700">@{channel.slug}</span>
+            {FeatureFlags.CHANNEL_FOLLOW && ` · 팔로워 ${subscriberCount.toLocaleString()}명`} · 콘텐츠 {contentCount}개
           </p>
 
           {isEditingDescription ? (
@@ -156,13 +157,13 @@ export default function ChannelHeader({ contentCount }) {
             )}
           </>
         ) : viewer.isSubscriber ? (
-          <span className="rounded-full bg-stone-100 px-5 py-2 text-sm font-medium text-stone-600">구독 중</span>
+          <span className="rounded-full bg-stone-100 px-5 py-2 text-sm font-medium text-stone-600">{MembershipOffer.ACTIVE_LABEL}</span>
         ) : (
           <Link
-            href={SubscriptionPaths.PRICING}
+            href={MembershipOffer.PATH}
             className="rounded-full bg-stone-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
           >
-            구독
+            {MembershipOffer.JOIN_LABEL}
           </Link>
         )}
       </div>

@@ -15,8 +15,8 @@ export default function GalleryGrid({ images, size = "md", currentId = null, onR
         const isCurrent = image.id === currentId;
         return (
           <li key={image.id} className="relative">
-            {/* 링크에는 둥근 모서리 클래스를 두지 않습니다 — globals.css의 "버튼 별빛"(둥근 링크를
-                버튼처럼 파랗게 칠함)이 사진 썸네일에 걸리지 않게, 사진·모서리는 안쪽 상자에 둡니다. */}
+            {/* 링크에는 둥근 모서리 클래스를 두지 않습니다 — globals.css의 "촛불 반전"(둥근 링크를
+                버튼처럼 칠함)이 사진 썸네일에 걸리지 않게, 사진·모서리는 안쪽 상자에 둡니다. */}
             <Link
               href={image.path}
               scroll

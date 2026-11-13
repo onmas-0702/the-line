@@ -3,7 +3,7 @@ import { PLATFORM_INFO, PLATFORM_TITLE } from "@/lib/mockData";
 
 // 랜딩 페이지 맨 아래 제작사 정보·환불정책·연락처. 값은 lib/mockData.js의 PLATFORM_INFO.
 
-function InfoLine({ label, value, href }) {
+function InfoLine({ label, value, href, placeholder = "입력 예정" }) {
   return (
     <p>
       <span className="text-stone-400">{label}</span>{" "}
@@ -16,7 +16,7 @@ function InfoLine({ label, value, href }) {
           <span className="text-stone-600">{value}</span>
         )
       ) : (
-        <span className="text-stone-300">입력 예정</span>
+        <span className="text-stone-300">{placeholder}</span>
       )}
     </p>
   );
@@ -30,12 +30,14 @@ export default function PlatformFooter() {
       <InstallGuideLink className="mt-2 rounded-full border border-night-200 bg-white px-3 py-1.5 text-xs font-medium text-night-800" />
 
       <div className="mt-3 space-y-1">
-        <InfoLine label="제작사" value={info.companyName} />
-        <InfoLine label="대표" value={info.representative} />
+        <InfoLine label="상호" value={info.companyName} />
+        <InfoLine label="대표자" value={info.representative} />
         <InfoLine label="사업자등록번호" value={info.businessNumber} />
+        <InfoLine label="통신판매업 신고" value={info.mailOrderNumber} placeholder="신고 준비 중" />
         <InfoLine label="주소" value={info.address} />
-        <InfoLine label="연락처" value={info.phone} href={info.phone ? `tel:${info.phone}` : undefined} />
-        <InfoLine label="메일" value={info.email} href={info.email ? `mailto:${info.email}` : undefined} />
+        <InfoLine label="전화" value={info.phone} href={info.phone ? `tel:${info.phone}` : undefined} />
+        <InfoLine label="이메일" value={info.email} href={info.email ? `mailto:${info.email}` : undefined} />
+        <InfoLine label="호스팅 제공자" value={info.hostingProvider} />
       </div>
 
       <details className="mt-4 rounded-xl bg-white px-3 py-2 text-stone-600">

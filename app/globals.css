@@ -55,24 +55,28 @@ body {
 }
 
 /*
- * 버튼 별빛 — 마우스를 올리면(휴대폰은 손가락으로 누르고 있는 동안) 버튼이 밝고 선명한
- * 별빛 파랑(--hover-fill)으로 바뀌고, 뒤로 푸른 빛이 은은하게 번집니다(밤하늘 느낌).
+ * 촛불 반전 — 사이트 전체의 버튼 롤오버(휴대폰은 손가락으로 누르고 있는 동안).
+ * 어두운 밤에 등잔불이 켜지듯, 버튼이 살짝 비치는 촛불빛 호박색으로 은은하게 밝아지고
+ * 글자·아이콘은 깊은 밤색이 되며, 뒤로 따뜻한 빛이 번집니다. 선명한 대비보다 은은한 강조.
  * 대상: 모든 <button>, 그리고 버튼 모양 링크(둥근 모서리 클래스). 콘텐츠 카드처럼 넓은 링크는 제외.
  * 층(layer) 밖 규칙이라 bg-*·hover:* 클래스보다 우선합니다.
  * iOS 터치는 components/common/TouchFeedback.js가 켜 줍니다.
+ * (예전 이름 "버튼 별빛" — 선명한 파랑이던 것을 2026-11 촛불빛으로 바꿈)
  */
 :root {
   --surface: #fafaf9; /* stone-50, body 바탕 */
-  --hover-fill: #3d6bff; /* 선명한 별빛 파랑 */
-  --glow: drop-shadow(0 0 6px rgb(110 150 255 / 0.6)) drop-shadow(0 0 16px rgb(61 107 255 / 0.35));
+  --hover-fill: rgb(243 217 168 / 0.88); /* 촛불빛 호박색(뒤가 살짝 비침) */
+  --hover-edge: rgb(232 197 142 / 0.95); /* 은은한 호박색 테두리 */
+  --hover-ink: #17204a; /* 깊은 밤색 글자·아이콘 */
+  --glow: drop-shadow(0 0 6px rgb(255 196 120 / 0.42)) drop-shadow(0 0 16px rgb(255 170 90 / 0.2));
 }
 @media (hover: hover) {
   button:not(:disabled):hover,
   a[class*="rounded-full"]:hover,
   a[class*="rounded-xl"]:hover {
     background-color: var(--hover-fill);
-    border-color: var(--hover-fill);
-    color: #fff;
+    border-color: var(--hover-edge);
+    color: var(--hover-ink);
     filter: var(--glow);
   }
 }
@@ -84,8 +88,36 @@ body {
   a[class*="rounded-full"]:active,
   a[class*="rounded-xl"]:active {
     background-color: var(--hover-fill);
-    border-color: var(--hover-fill);
-    color: #fff;
+    border-color: var(--hover-edge);
+    color: var(--hover-ink);
     filter: var(--glow);
+  }
+}
+
+/*
+ * 촛불 롤오버(밝은 화면용, .lamp-soft) — 흰 바탕 위의 큰 선택 카드(예: 멤버십 월간·연간)용.
+ * 위 "촛불 반전"과 같은 촛불빛이지만, 넓은 카드는 바탕을 크림빛으로만 살짝 물들이고
+ * 글자색은 그대로 둡니다 — 촛불이 가까이 다가온 듯 은은하게. 위 규칙보다
+ * 선택자가 구체적이라 이 카드들에서는 이쪽이 이깁니다.
+ */
+:root {
+  --lamp-soft-fill: #fbf1df; /* 촛불빛이 스민 크림색 */
+  --lamp-soft-edge: #e8c58e; /* 은은한 호박색 테두리 */
+  --lamp-soft-glow: drop-shadow(0 2px 6px rgb(214 160 80 / 0.18)) drop-shadow(0 0 14px rgb(255 196 120 / 0.22));
+}
+@media (hover: hover) {
+  .lamp-soft:not(:disabled):hover {
+    background-color: var(--lamp-soft-fill);
+    border-color: var(--lamp-soft-edge);
+    color: inherit;
+    filter: var(--lamp-soft-glow);
+  }
+}
+@media (hover: none) {
+  .lamp-soft:not(:disabled):active {
+    background-color: var(--lamp-soft-fill);
+    border-color: var(--lamp-soft-edge);
+    color: inherit;
+    filter: var(--lamp-soft-glow);
   }
 }
