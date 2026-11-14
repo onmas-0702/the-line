@@ -29,6 +29,7 @@ import WaveformCanvas from "@/components/studio/WaveformCanvas";
 import { BackgroundMixer, ClipGain, TimeFormat, WaveformAnalyzer } from "@/lib/audio";
 import { FileDrop, FileKind } from "@/lib/fileDrop";
 import {
+  ClipRoll,
   ClipTrim,
   FocusGuard,
   PointerDrag,
@@ -46,7 +47,11 @@ const MAX_VOICE_OFFSET = 30;
 // 자르기 모드에서 마우스가 재생선에서 이 픽셀 이내면 재생선 위치로 자석처럼 붙습니다.
 const CUT_SNAP_PIXELS = 10;
 
-const MODE = Object.freeze({ SELECT: "select", CUT: "cut", TRIM: "trim" });
+// 선택(기본): 클립 가장자리를 끌면 리플 트리밍 · 자르기 · 롤링: 두 클립 사이 경계를 옮김(전체 길이 그대로)
+const MODE = Object.freeze({ SELECT: "select", CUT: "cut", ROLL: "roll" });
+
+// 클립 가장자리를 잡을 수 있는 폭(px)
+const EDGE_PX = 8;
 
 /** 볼륨 손잡이 옆의 수치(0% 기준 ±5%) — 끄는 동안은 크고 진하게. */
 function VolumeBadge({ gain, active, tone }) {
@@ -75,6 +80,8 @@ export default function ClipTimeline({
   onDropFiles = null, // (files) => void — 오디오 파일을 타임라인에 끌어다 놓으면 클립으로 추가
   backgroundPending = false, // 배경음악을 골랐는데 아직 불러오는 중
   onRequestBackground = null, // 빈 배경음악 트랙의 [배경음악 고르기] — 라이브러리로 이동
+  musicClip = null, // { startSeconds, offsetSeconds, endSeconds|null } — 배경음악 클립(MusicClip)
+  onMusicClipChange = () => {},
 }) {
   const [selectedId, setSelectedId] = useState(null);
   const [mode, setMode] = useState(MODE.SELECT);
@@ -86,7 +93,10 @@ export default function ClipTimeline({
   const [bgVolumeDraft, setBgVolumeDraft] = useState(null); // 드래그 중 미리보기 값 (0~ClipGain.MAX)
   const [zoomLevel, setZoomLevel] = useState(TimelineZoom.MIN); // 100~3200(%) — 가로 확대 배율
   const [cutHover, setCutHover] = useState(null); // { seconds, snapped, valid } — 자르기 표시선
-  const [trimDraft, setTrimDraft] = useState(null); // { id, inSample, outSample, axisSeconds, edge }
+  // 가장자리를 끄는 동안 화면에만 보여 줄 값 — 손을 떼면 한 번에 반영(실행 취소 1칸).
+  const [edgeDraft, setEdgeDraft] = useState(null); // { ranges: { [clipId]: { inSample, outSample } }, label }
+  const [musicDraft, setMusicDraft] = useState(null); // 배경음악 클립 { startSeconds, offsetSeconds, endSeconds }
+  const [frozenAxis, setFrozenAxis] = useState(null); // 끄는 동안 화면 배율 고정(초)
   const [isFileOver, setIsFileOver] = useState(false);
   const trackRowRef = useRef(null);
   const railRef = useRef(null);
@@ -102,10 +112,13 @@ export default function ClipTimeline({
     return playerRef.current;
   }
 
-  // 편집은 항상 실제 segments로, 화면 배치는 트리밍 중이면 끌고 있는 길이를 반영한 것으로.
+  // 편집은 항상 실제 segments로, 화면 배치는 가장자리를 끄는 중이면 그 길이를 반영한 것으로.
   const editTimeline = new Timeline(segments);
-  const shownSegments = trimDraft
-    ? segments.map((s) => (s.id === trimDraft.id ? Segment.preview(s, trimDraft.inSample, trimDraft.outSample) : s))
+  const shownSegments = edgeDraft
+    ? segments.map((s) => {
+        const r = edgeDraft.ranges[s.id];
+        return r ? Segment.preview(s, r.inSample, r.outSample) : s;
+      })
     : segments;
   const timeline = new Timeline(shownSegments);
   const voiceSeconds = timeline.totalSeconds;
@@ -113,32 +126,39 @@ export default function ClipTimeline({
   const selected = editTimeline.find(selectedId);
 
   const hasBackground = Boolean(backgroundBuffer);
-  // 배경음악이 있으면 [인트로(배경음악만)] + [목소리] + [페이드아웃 꼬리]가 실제로 재생되는 길이입니다.
   const leadSeconds = hasBackground ? voiceOffsetSeconds : 0;
-  const tailSeconds = hasBackground && voiceSeconds > 0 ? BackgroundMixer.FADE_OUT_SECONDS : 0;
-  // 트리밍 중에는 화면 배율을 고정해서(전체 길이가 바뀌어도) 끄는 손과 가장자리가 어긋나지 않게 합니다.
-  // 실제 믹싱과 같은 시간별 배경음악 볼륨(배경음악 트랙 파형에 그대로 반영).
-  const backgroundMixer = new BackgroundMixer({ volume: backgroundVolume, voiceOffsetSeconds });
-  const axis = new TimeAxis(trimDraft?.axisSeconds ?? leadSeconds + voiceSeconds + tailSeconds);
+  const shownMusic = musicDraft || musicClip || {};
+  // 실제 믹싱과 같은 믹서 — 전체 길이, 배경음악 클립 위치, 시간별 볼륨(파형)이 모두 여기서 나옵니다.
+  const backgroundMixer = BackgroundMixer.fromSettings({
+    musicVolume: backgroundVolume,
+    voiceOffsetSeconds,
+    musicClip: shownMusic,
+  });
+  const musicStart = backgroundMixer.musicStartSeconds;
+  const musicEnd = backgroundMixer.endSeconds(voiceSeconds);
+  const naturalSeconds = hasBackground ? backgroundMixer.totalSeconds(voiceSeconds) : voiceSeconds;
+  // 가장자리를 끄는 동안에는 화면 배율을 고정해서(전체 길이가 바뀌어도) 끄는 손과 가장자리가 어긋나지 않게 합니다.
+  const axis = new TimeAxis(frozenAxis ?? naturalSeconds);
 
   // 실제로 재생되는 소리 — 디코딩한 클립 + 빈 공간의 진짜 무음, 배경음악이 있으면 저장과 같은 믹스.
+  const musicKey = JSON.stringify(musicClip || {});
   const previewBuffer = useMemo(() => {
     const voice = new Timeline(segments).toBuffer();
     if (!voice) return null;
     if (!backgroundBuffer) return voice;
-    return new BackgroundMixer({ volume: backgroundVolume, voiceOffsetSeconds }).mix(voice, backgroundBuffer);
-  }, [segments, backgroundBuffer, backgroundVolume, voiceOffsetSeconds]);
+    return BackgroundMixer.fromSettings({ musicVolume: backgroundVolume, voiceOffsetSeconds, musicClip: JSON.parse(musicKey) }).mix(
+      voice,
+      backgroundBuffer
+    );
+  }, [segments, backgroundBuffer, backgroundVolume, voiceOffsetSeconds, musicKey]);
 
-  // 배경음악 줄 파형 — 실제 믹싱과 똑같이 전체 길이에 맞춰 반복/트림된 모양.
-  const backgroundWaveform = useMemo(
-    () => {
-      if (!backgroundBuffer || axis.seconds <= 0) return null;
-      // 1초에 4개쯤(전체 최대 600개) — 3초 뒤 낮추기·페이드아웃이 파형에서 보일 만큼 촘촘하게.
-      const totalBars = Math.min(600, Math.max(48, Math.round(axis.seconds * 4)));
-      const barsPerLoop = Math.max(1, Math.round((totalBars * backgroundBuffer.duration) / axis.seconds));
-      return WaveformAnalyzer.tiledPeaks(backgroundBuffer, axis.seconds, barsPerLoop);
-    },
-    [backgroundBuffer, axis.seconds]
+  // 배경음악 곡 한 바퀴의 음량 막대(1초에 8개) — 배경음악 클립 상자에 곡 위치대로 골라 그립니다.
+  const songPeaks = useMemo(
+    () =>
+      backgroundBuffer
+        ? WaveformAnalyzer.peaks(backgroundBuffer, Math.max(16, Math.min(4000, Math.round(backgroundBuffer.duration * 8))))
+        : null,
+    [backgroundBuffer]
   );
 
   function stopPlayback() {
@@ -220,7 +240,7 @@ export default function ClipTimeline({
     }
     stopPlayback();
     setIsPlaying(false);
-  }, [segments, backgroundBuffer, voiceOffsetSeconds]);
+  }, [segments, backgroundBuffer, voiceOffsetSeconds, musicKey]);
 
   useEffect(() => {
     return () => {
@@ -322,7 +342,7 @@ export default function ClipTimeline({
 
   // 줄을 누르면: 자르기 모드에서는 표시선 자리에서 자르고, 아니면 그 구간을 고르고 재생선을 옮깁니다.
   function handleRowClick(e) {
-    if (axis.seconds <= 0 || trimDraft) return;
+    if (axis.seconds <= 0 || edgeDraft || musicDraft) return;
     if (mode === MODE.CUT) {
       const target = cutTargetAt(e.clientX);
       if (!target?.valid) return;
@@ -449,41 +469,110 @@ export default function ClipTimeline({
     );
   }
 
-  // 트리밍 — 클립 가장자리를 좌우로 끕니다. 끄는 동안은 화면에만 보여주고 손을 떼면 한 번에 반영.
-  // 앞 가장자리를 오른쪽으로 끌면 앞부분이 줄고, 왼쪽으로 끌면 자르기로 잘렸던 부분이 되살아납니다.
-  // 뒤 클립들은 마그네틱으로 따라 움직입니다.
-  // 손잡이에 붙은 data-seg-id / data-edge로 어느 클립의 어느 쪽인지 찾습니다.
-  function handleTrimStart(e) {
+  /** 가장자리 끌기 공통 준비 — 재생을 멈추고 화면 배율을 고정한 뒤, 초 단위 이동량으로 onMove를 부릅니다. */
+  function beginEdgeDrag(e, { onMove, onEnd }) {
     e.preventDefault();
     e.stopPropagation();
-    const { segId, edge } = e.currentTarget.dataset;
-    const seg = editTimeline.find(segId);
-    if (!seg || seg.type !== "clip") return;
-    const rect = trackRowRef.current?.getBoundingClientRect();
-    const pps = axis.pixelsPerSecond(rect);
+    const pps = axis.pixelsPerSecond(trackRowRef.current?.getBoundingClientRect());
     if (!pps) return;
     stopPlayback();
     setIsPlaying(false);
-    const start = { id: seg.id, inSample: seg.inSample, outSample: seg.outSample, axisSeconds: axis.seconds, edge };
-    setTrimDraft(start);
+    setFrozenAxis(axis.seconds);
     beginPointerDrag(
-      { ...start, startX: e.clientX, pps, cursor: "ew-resize" },
+      { startX: e.clientX, pps, cursor: "ew-resize" },
       {
-        onMove: (ev, state) => {
-          const range = ClipTrim.range(seg, edge, (ev.clientX - state.startX) / state.pps);
-          state.inSample = range.inSample;
-          state.outSample = range.outSample;
-          setTrimDraft({ ...start, ...range });
-        },
+        onMove: (ev, state) => onMove((ev.clientX - state.startX) / state.pps, state),
         onEnd: (ev, state) => {
-          setTrimDraft(null);
-          if (state.inSample !== seg.inSample || state.outSample !== seg.outSample) {
-            onChange(editTimeline.trim(seg.id, state.inSample, state.outSample));
-            setSelectedId(seg.id);
-          }
+          setFrozenAxis(null);
+          onEnd(state);
         },
       }
     );
+  }
+
+  // 리플 트리밍 — 클립 가장자리(data-seg-id, data-edge)를 좌우로 끕니다. 오른쪽 끝을 오른쪽으로 당기면
+  // 숨어 있던 뒷부분이 나타나고, 왼쪽으로 밀면 줄어듭니다. 앞 끝도 같은 방식. 뒤 클립들은 따라 움직입니다.
+  function handleClipEdgeStart(e) {
+    const { segId, edge } = e.currentTarget.dataset;
+    const seg = editTimeline.find(segId);
+    if (!seg || seg.type !== "clip") return;
+    beginEdgeDrag(e, {
+      onMove: (delta, state) => {
+        // 앞 끝은 오른쪽으로 끌면 줄어드는 방향이라, 화면 움직임과 같은 쪽으로 보이게 그대로 씁니다.
+        const range = ClipTrim.range(seg, edge, delta);
+        state.range = range;
+        setEdgeDraft({ ranges: { [seg.id]: range } });
+      },
+      onEnd: (state) => {
+        setEdgeDraft(null);
+        const r = state.range;
+        if (r && (r.inSample !== seg.inSample || r.outSample !== seg.outSample)) {
+          onChange(editTimeline.trim(seg.id, r.inSample, r.outSample));
+          setSelectedId(seg.id);
+        }
+      },
+    });
+  }
+
+  // 롤링 — 붙어 있는 두 클립 사이 경계(data-left-id, data-right-id)를 끕니다. 앞 클립이 늘면 뒤 클립이
+  // 그만큼 줄어서 전체 길이와 뒤쪽 위치는 그대로입니다.
+  function handleRollStart(e) {
+    const { leftId, rightId } = e.currentTarget.dataset;
+    const left = editTimeline.find(leftId);
+    const right = editTimeline.find(rightId);
+    if (!left || !right) return;
+    beginEdgeDrag(e, {
+      onMove: (delta, state) => {
+        const r = ClipRoll.range(left, right, delta);
+        state.roll = r;
+        setEdgeDraft({
+          ranges: {
+            [left.id]: { inSample: left.inSample, outSample: r.leftOut },
+            [right.id]: { inSample: r.rightIn, outSample: right.outSample },
+          },
+        });
+      },
+      onEnd: (state) => {
+        setEdgeDraft(null);
+        const r = state.roll;
+        if (r && r.deltaSeconds !== 0) onChange(editTimeline.roll(left.id, right.id, r.leftOut, r.rightIn));
+      },
+    });
+  }
+
+  // 배경음악 클립 가장자리 — 앞 끝을 끌면 음악이 시작하는 곳과 곡 안 시작 위치가 함께 움직이고(앞부분 트리밍),
+  // 뒤 끝을 끌면 음악이 끝나는 곳이 바뀝니다(곡보다 길게 당기면 반복해서 이어지고, 끝에서 3초 페이드아웃).
+  function handleMusicEdgeStart(e) {
+    const edge = e.currentTarget.dataset.edge;
+    const song = backgroundBuffer?.duration || 0;
+    const base = { startSeconds: musicStart, offsetSeconds: backgroundMixer.musicOffsetSeconds, endSeconds: musicEnd };
+    const autoEnd = musicClip?.endSeconds === null || musicClip?.endSeconds === undefined;
+    const maxEnd = leadSeconds + voiceSeconds + 600;
+    beginEdgeDrag(e, {
+      onMove: (delta, state) => {
+        let next;
+        if (edge === "start") {
+          const start = Math.max(0, Math.min(base.endSeconds - BackgroundMixer.MIN_MUSIC_SECONDS, base.startSeconds + delta));
+          const moved = start - base.startSeconds;
+          const offset = song ? (((base.offsetSeconds + moved) % song) + song) % song : 0;
+          next = { startSeconds: start, offsetSeconds: offset, endSeconds: autoEnd ? null : base.endSeconds };
+        } else {
+          const end = Math.max(base.startSeconds + BackgroundMixer.MIN_MUSIC_SECONDS, Math.min(maxEnd, base.endSeconds + delta));
+          next = { startSeconds: base.startSeconds, offsetSeconds: base.offsetSeconds, endSeconds: end };
+        }
+        state.music = next;
+        setMusicDraft(next);
+      },
+      onEnd: (state) => {
+        setMusicDraft(null);
+        if (state.music) onMusicClipChange(musicClip?.with ? musicClip.with(state.music) : state.music);
+      },
+    });
+  }
+
+  /** 배경음악 끝을 다시 "자동"(마지막 목소리 끝 + 페이드아웃)으로. */
+  function resetMusicEnd() {
+    if (musicClip?.with) onMusicClipChange(musicClip.with({ endSeconds: null }));
   }
 
   // 배경음악 볼륨 — 배경음악 줄 가운데 세로선. 끄는 동안 바로 반영(재생 중이면 아래 effect가 다시 재생).
@@ -532,12 +621,13 @@ export default function ClipTimeline({
   const playheadPercent = axis.percentOf(Math.min(playheadSeconds, axis.seconds));
   const hasAnything = axis.seconds > 0;
   const isCut = mode === MODE.CUT;
-  const isTrim = mode === MODE.TRIM;
+  const isRoll = mode === MODE.ROLL;
+  const isSelectMode = mode === MODE.SELECT;
 
   const modeHint = isCut
     ? "빨간 표시선이 있는 곳을 누르면 정확히 그 자리에서 잘려요. 재생선 가까이 가면 재생선에 붙어요. (Esc: 그만)"
-    : isTrim
-    ? "클립 양쪽 가장자리에 마우스를 올리면 ↔ 모양이 돼요. 누른 채 좌우로 끌면 앞·뒤가 줄거나, 잘린 부분이 다시 늘어나요. (Esc: 그만)"
+    : isRoll
+    ? "붙어 있는 두 클립 사이의 노란 경계를 좌우로 끌면, 한쪽이 늘어난 만큼 다른 쪽이 줄어요. 전체 길이는 그대로예요. (Esc: 그만)"
     : "";
 
   return (
@@ -576,14 +666,15 @@ export default function ClipTimeline({
 
         <button
           type="button"
-          onClick={() => toggleMode(MODE.TRIM)}
-          disabled={voiceSeconds === 0}
-          aria-pressed={isTrim}
+          onClick={() => toggleMode(MODE.ROLL)}
+          disabled={editTimeline.clips.length < 2}
+          aria-pressed={isRoll}
+          title="두 클립 사이 경계를 옮기기(롤링)"
           className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
-            isTrim ? "border-amber-400 bg-amber-50 text-amber-800" : "border-stone-300 text-stone-600 hover:bg-stone-100"
+            isRoll ? "border-amber-400 bg-amber-50 text-amber-800" : "border-stone-300 text-stone-600 hover:bg-stone-100"
           }`}
         >
-          <UnfoldHorizontal size={13} /> 트리밍
+          <UnfoldHorizontal size={13} /> 롤링
         </button>
 
         <button
@@ -631,7 +722,10 @@ export default function ClipTimeline({
         </div>
       </div>
 
-      {modeHint && <p className={`mt-2 text-xs ${isCut ? "text-red-600" : "text-amber-700"}`}>{modeHint}</p>}
+      <p className={`mt-2 text-xs ${isCut ? "text-red-600" : isRoll ? "text-amber-700" : "text-stone-400"}`}>
+        {modeHint ||
+          "클립이나 배경음악의 가장자리를 잡고 좌우로 끌면 길이를 바꿀 수 있어요(오른쪽으로 당기면 숨은 부분이 나타나요). 클립 가운데를 끌면 순서를 바꿔요."}
+      </p>
 
       {/* 진행바 + 목소리 줄 + 배경음악 줄 — 모두 같은 시간축. 진행바도 확대 영역 안에 있어서 확대하면
           함께 넓어지고 함께 스크롤되므로, 진행바의 위치와 파형 위 세로선이 언제나 같은 자리에 있습니다. */}
@@ -696,9 +790,9 @@ export default function ClipTimeline({
                 );
               }
               const effectiveGain = gainDraft?.id === seg.id ? gainDraft.gain : seg.gain ?? ClipGain.DEFAULT;
-              const isTrimming = trimDraft?.id === seg.id;
+              const isTrimming = Boolean(edgeDraft?.ranges[seg.id]);
               const hidden = Segment.hiddenEdges(seg);
-              const canReorder = mode === MODE.SELECT;
+              const canReorder = isSelectMode && !edgeDraft;
               return (
                 <div
                   key={seg.id}
@@ -740,7 +834,7 @@ export default function ClipTimeline({
                   </div>
 
                   {/* 클립 통째로 완전 삭제(빈 공간 없이). */}
-                  {!isTrim && (
+                  {isSelectMode && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -774,8 +868,9 @@ export default function ClipTimeline({
                     </div>
                   )}
 
-                  {/* 트리밍 손잡이 — 양쪽 가장자리. 잘려서 숨은 부분이 있는 쪽은 진하게 보여요. */}
-                  {isTrim &&
+                  {/* 리플 트리밍 손잡이 — 양쪽 가장자리(선택 모드에서 언제나). 마우스를 올리면 ↔, 잘려서 숨은 부분이
+                      있는 쪽은 진하게 보여서 "더 당기면 나타난다"는 걸 알 수 있어요. */}
+                  {isSelectMode &&
                     [ClipTrim.EDGES.START, ClipTrim.EDGES.END].map((edge) => {
                       const isStart = edge === ClipTrim.EDGES.START;
                       const strong = isStart ? hidden.start : hidden.end;
@@ -784,15 +879,18 @@ export default function ClipTimeline({
                           key={edge}
                           data-seg-id={seg.id}
                           data-edge={edge}
-                          onMouseDown={handleTrimStart}
+                          draggable={false}
+                          onDragStart={(e) => e.preventDefault()}
+                          onMouseDown={handleClipEdgeStart}
                           onClick={(e) => e.stopPropagation()}
-                          className={`absolute inset-y-0 z-20 flex w-3 cursor-ew-resize items-center justify-center ${isStart ? "left-0" : "right-0"}`}
-                          title={isStart ? "앞부분 트리밍 — 좌우로 끌기" : "뒷부분 트리밍 — 좌우로 끌기"}
+                          style={{ width: EDGE_PX }}
+                          className={`group/edge absolute inset-y-0 z-20 cursor-ew-resize ${isStart ? "left-0" : "right-0"}`}
+                          title={isStart ? "앞부분 길이 — 좌우로 끌기" : "뒷부분 길이 — 좌우로 끌기(오른쪽으로 당기면 숨은 부분이 나타나요)"}
                           aria-label={isStart ? "앞부분 트리밍" : "뒷부분 트리밍"}
                         >
                           <span
-                            className={`h-full w-1.5 ${isStart ? "rounded-l-md" : "rounded-r-md"} ${
-                              strong ? "bg-amber-500" : "bg-amber-300/70"
+                            className={`absolute inset-y-0 w-1 transition group-hover/edge:w-1.5 ${isStart ? "left-0 rounded-l-md" : "right-0 rounded-r-md"} ${
+                              isTrimming ? "bg-amber-500" : strong ? "bg-amber-400/80 group-hover/edge:bg-amber-500" : "bg-transparent group-hover/edge:bg-amber-400"
                             }`}
                           />
                         </div>
@@ -806,15 +904,42 @@ export default function ClipTimeline({
               );
             })}
 
-            {hasBackground && tailSeconds > 0 && (
+            {hasBackground && voiceSeconds > 0 && musicEnd > leadSeconds + voiceSeconds && (
               <div
-                style={{ left: `${axis.percentOf(leadSeconds + voiceSeconds)}%`, width: `${axis.percentOf(tailSeconds)}%` }}
+                style={{
+                  left: `${axis.percentOf(leadSeconds + voiceSeconds)}%`,
+                  width: `${axis.percentOf(musicEnd - leadSeconds - voiceSeconds)}%`,
+                }}
                 className="pointer-events-none absolute inset-y-0 flex items-center justify-center rounded-md border-2 border-dashed border-sky-100 text-center text-[10px] leading-tight text-sky-400"
-                title="목소리가 끝난 뒤 배경음악이 서서히 작아지는 구간"
+                title="목소리가 끝난 뒤 배경음악만 이어지다 서서히 작아지는 구간"
               >
-                {axis.percentOf(tailSeconds) > 6 && "페이드아웃"}
+                {axis.percentOf(musicEnd - leadSeconds - voiceSeconds) > 6 && "배경음악만"}
               </div>
             )}
+
+            {/* 롤링 손잡이 — 붙어 있는 두 클립 사이 경계마다. */}
+            {isRoll &&
+              shownSegments.map((seg, idx) => {
+                const pair = timeline.neighborsAt(idx);
+                if (!pair) return null;
+                const boundary = timeline.startSecondsOf(idx + 1, leadSeconds);
+                return (
+                  <div
+                    key={`roll-${seg.id}`}
+                    data-left-id={pair.left.id}
+                    data-right-id={pair.right.id}
+                    onMouseDown={handleRollStart}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ left: `${axis.percentOf(boundary)}%`, width: EDGE_PX * 2 }}
+                    className="group/roll absolute inset-y-0 z-30 -translate-x-1/2 cursor-ew-resize"
+                    title="경계 옮기기(롤링) — 좌우로 끌기"
+                    aria-label="두 클립 사이 경계 옮기기"
+                  >
+                    <span className="absolute inset-y-0 left-1/2 w-1 -translate-x-1/2 rounded bg-amber-400 group-hover/roll:w-1.5 group-hover/roll:bg-amber-500" />
+                    <span className="absolute left-1/2 top-1/2 h-5 w-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border-2 border-white bg-amber-500 shadow" />
+                  </div>
+                );
+              })}
 
             {segments.length === 0 && (
               <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-xs text-stone-400">
@@ -839,53 +964,108 @@ export default function ClipTimeline({
             </button>
           )}
 
-          {/* 배경음악 트랙 — 오디오 트랙과 같은 폭(같은 시간축). 언제나 보이고, 곡을 올리기 전에는 비어 있습니다.
-              가운데 세로선으로 배경음악 전체 볼륨을 조절합니다. */}
+          {/* 배경음악 트랙 — 오디오 트랙과 같은 시간축. 곡을 올리면 "배경음악 클립" 상자가 생기고, 양쪽 가장자리를
+              끌어 시작·끝을 바꿉니다(앞 끝: 앞부분 트리밍, 뒤 끝: 당기면 곡이 반복해서 이어짐). 가운데 세로선은 볼륨. */}
           {(() => {
             const effectiveBgVolume = bgVolumeDraft ?? ClipGain.clamp(backgroundVolume);
-            const hasWave = Boolean(backgroundWaveform && backgroundWaveform.length > 0);
+            const hasClip = Boolean(hasBackground && songPeaks && hasAnything);
+            const clipSeconds = Math.max(0, musicEnd - musicStart);
+            const bars = hasClip ? Math.max(12, Math.min(600, Math.round(clipSeconds * 4))) : 0;
+            const song = backgroundBuffer?.duration || 0;
+            const isMusicDragging = Boolean(musicDraft);
+            const isCustomEnd = musicClip?.endSeconds !== null && musicClip?.endSeconds !== undefined;
             return (
-              <div className={`mt-1 rounded-lg p-1.5 ${hasWave ? "bg-sky-50" : "border border-dashed border-sky-200 bg-sky-50/40"}`}>
+              <div className={`mt-1 rounded-lg p-1.5 ${hasClip ? "bg-sky-50/60" : "border border-dashed border-sky-200 bg-sky-50/40"}`}>
                 <div className="mb-1 h-4">
                   <span className="sticky left-1.5 inline-flex items-center gap-1 text-[10px] font-semibold text-sky-700">
                     <Music size={11} /> 배경음악 트랙
-                    {hasWave && (
+                    {hasClip && (
                       <span className="font-medium text-sky-600">
-                        · {backgroundName || "배경음악"} · 목소리는 {voiceOffsetSeconds.toFixed(1)}초 후 시작 · 볼륨{" "}
-                        {ClipGain.label(effectiveBgVolume)}
+                        · {backgroundName || "배경음악"} · {TimeFormat.precise(musicStart)}~{TimeFormat.precise(musicEnd)}
+                        {musicStart > 0 || backgroundMixer.musicOffsetSeconds > 0
+                          ? ` · 곡의 ${TimeFormat.precise(backgroundMixer.musicOffsetSeconds)}부터`
+                          : ""}{" "}
+                        · 볼륨 {ClipGain.label(effectiveBgVolume)}
                       </span>
+                    )}
+                    {hasClip && isCustomEnd && !isMusicDragging && (
+                      <button
+                        type="button"
+                        onClick={resetMusicEnd}
+                        className="ml-1 rounded-full border border-sky-300 bg-white px-1.5 py-px text-[10px] font-medium text-sky-700"
+                        title="배경음악 끝을 마지막 오디오 끝 + 페이드아웃으로 되돌려요"
+                      >
+                        끝 자동 맞춤
+                      </button>
                     )}
                   </span>
                 </div>
-                {hasWave ? (
-                  <div className="relative flex h-16 items-end gap-[1px] overflow-hidden">
-                    {/* 배경음악 파형도 볼륨만큼 커지고 작아집니다(오디오 트랙과 같은 척도: 0%일 때 절반 높이).
-                        여기에 실제 믹싱의 시간별 볼륨(3초 뒤 낮추기, 끝난 뒤 페이드아웃)까지 곱해서 그립니다. */}
-                    {backgroundWaveform.map((v, i) => {
-                      const t = ((i + 0.5) / backgroundWaveform.length) * axis.seconds;
-                      const level = backgroundMixer.levelAt(t, voiceSeconds);
-                      return (
-                        <span
-                          key={i}
-                          className="w-full rounded-sm bg-sky-300"
-                          style={{ height: `max(1px, ${(v * effectiveBgVolume * level) / ClipGain.MAX}%)` }}
-                        />
-                      );
-                    })}
+                {hasClip ? (
+                  <div className="relative h-16">
                     <div
-                      onMouseDown={handleBgVolumeDragStart}
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute inset-y-0 left-1/2 z-10 flex w-6 -translate-x-1/2 cursor-ns-resize items-start justify-center"
-                      title={`배경음악 볼륨 ${ClipGain.label(effectiveBgVolume)} (위아래로 끌어서 5%씩 조절)`}
+                      style={{ left: `${axis.percentOf(musicStart)}%`, width: `${axis.percentOf(clipSeconds)}%` }}
+                      className="group absolute inset-y-0 overflow-hidden rounded-md bg-sky-100/70"
                     >
-                      <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-sky-500/60" />
-                      <div
-                        className="pointer-events-none absolute left-1/2 flex h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-sky-600 shadow"
-                        style={{ top: `${ClipGain.handleTopPercent(effectiveBgVolume)}%` }}
-                      >
-                        <GripHorizontal size={8} className="text-white" />
+                      {/* 곡의 실제 위치(앞부분 트리밍·반복)대로 고른 막대 × 볼륨 × 시간별 볼륨(3초 뒤 낮추기, 끝 페이드아웃). */}
+                      <div className="absolute inset-0 flex items-end gap-[1px] px-px">
+                        {Array.from({ length: bars }, (_, i) => {
+                          const t = musicStart + ((i + 0.5) / bars) * clipSeconds;
+                          const pos = backgroundMixer.sourceSecondsAt(t, song);
+                          const v = songPeaks[Math.min(songPeaks.length - 1, Math.floor((pos / song) * songPeaks.length))] || 0;
+                          const level = backgroundMixer.levelAt(t, voiceSeconds);
+                          return (
+                            <span
+                              key={i}
+                              className="w-full rounded-sm bg-sky-400/80"
+                              style={{ height: `max(1px, ${(v * effectiveBgVolume * level) / ClipGain.MAX}%)` }}
+                            />
+                          );
+                        })}
                       </div>
-                      <VolumeBadge gain={effectiveBgVolume} active={bgVolumeDraft !== null} tone="sky" />
+                      <div
+                        className={`pointer-events-none absolute inset-0 rounded-md border-2 ${
+                          isMusicDragging ? "border-amber-500" : "border-sky-300/70 group-hover:border-sky-400"
+                        }`}
+                      />
+                      {/* 볼륨 손잡이 */}
+                      <div
+                        onMouseDown={handleBgVolumeDragStart}
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute inset-y-0 left-1/2 z-10 flex w-6 -translate-x-1/2 cursor-ns-resize items-start justify-center"
+                        title={`배경음악 볼륨 ${ClipGain.label(effectiveBgVolume)} (위아래로 끌어서 5%씩 조절)`}
+                      >
+                        <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-sky-500/60" />
+                        <div
+                          className="pointer-events-none absolute left-1/2 flex h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-sky-600 shadow"
+                          style={{ top: `${ClipGain.handleTopPercent(effectiveBgVolume)}%` }}
+                        >
+                          <GripHorizontal size={8} className="text-white" />
+                        </div>
+                        <VolumeBadge gain={effectiveBgVolume} active={bgVolumeDraft !== null} tone="sky" />
+                      </div>
+                      {/* 양쪽 가장자리 — 시작(앞부분 트리밍) / 끝 */}
+                      {["start", "end"].map((edge) => (
+                        <div
+                          key={edge}
+                          data-edge={edge}
+                          onMouseDown={handleMusicEdgeStart}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ width: EDGE_PX }}
+                          className={`group/edge absolute inset-y-0 z-20 cursor-ew-resize ${edge === "start" ? "left-0" : "right-0"}`}
+                          title={
+                            edge === "start"
+                              ? "배경음악 시작 — 오른쪽으로 끌면 늦게 시작하며 곡 앞부분이 잘려요"
+                              : "배경음악 끝 — 좌우로 끌기(곡보다 길게 당기면 반복해서 이어져요)"
+                          }
+                          aria-label={edge === "start" ? "배경음악 시작 트리밍" : "배경음악 끝 트리밍"}
+                        >
+                          <span
+                            className={`absolute inset-y-0 w-1 bg-sky-500/70 transition group-hover/edge:w-1.5 group-hover/edge:bg-amber-500 ${
+                              edge === "start" ? "left-0 rounded-l-md" : "right-0 rounded-r-md"
+                            }`}
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ) : (

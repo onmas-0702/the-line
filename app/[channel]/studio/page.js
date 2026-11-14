@@ -9,6 +9,8 @@ import StaffPanel from "@/components/studio/StaffPanel";
 import StudioTabBar from "@/components/studio/StudioTabBar";
 import AudioWorkbench from "@/components/studio/AudioWorkbench";
 import PublishTimePicker from "@/components/studio/PublishTimePicker";
+import { SaveDraftBar, SavedDraftsList } from "@/components/studio/DraftControls";
+import { useAudioDrafts } from "@/components/studio/useAudioDrafts";
 import { useAudioWorkbench } from "@/components/studio/useAudioWorkbench";
 import FileDropZone from "@/components/common/FileDropZone";
 import { useViewer } from "@/components/ViewerProvider";
@@ -62,6 +64,19 @@ export default function RecordPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const clipCount = workbench.clips.length;
+
+  // 작업 저장하기 — 업로드와 별개로 편집 상태를 DB에 저장했다가 불러와 이어서 작업(0022).
+  const drafts = useAudioDrafts({
+    repository: repos.drafts,
+    workbench,
+    getMeta: () => ({ title, tagsInput, description, publish }),
+    applyMeta: (meta) => {
+      setTitle(meta.title);
+      setTagsInput(meta.tagsInput);
+      setDescription(meta.description);
+      setPublish(meta.publish);
+    },
+  });
 
   function resetForm() {
     workbench.reset();
@@ -127,6 +142,7 @@ export default function RecordPage() {
         });
         if (result.ok) {
           addAudioFromRow(result.row);
+          drafts.finishAfterUpload(); // 이어서 작업하던 저장본은 업로드했으니 정리
           // 서버에 배경이미지를 저장하지 못했으면(마이그레이션 전) 이 탭에서만이라도 보여줍니다.
           if (coverResult.displayUrl && (result.coverSkipped || !coverResult.cover)) {
             updateAudioLocal(result.row.id, { coverImageUrl: coverResult.displayUrl });
@@ -178,8 +194,11 @@ export default function RecordPage() {
         <ManageContentPanel />
       ) : (
       <>
+      <SavedDraftsList drafts={drafts} />
+
       <AudioWorkbench
         workbench={workbench}
+        afterTimeline={<SaveDraftBar drafts={drafts} isDirty={workbench.isDirty} hasClips={clipCount > 0} />}
         intro={
           !isSupabaseConfigured && (
             <p className="mt-1 text-xs text-night-600">

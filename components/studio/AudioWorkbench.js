@@ -56,7 +56,8 @@ function RecordPane({ workbench }) {
   );
 }
 
-export default function AudioWorkbench({ workbench, intro = null, defaultInputTab = "record" }) {
+/** afterTimeline: 오디오·배경음악 트랙 바로 아래에 둘 것(예: 콘텐츠 제작의 [작업 저장하기]). */
+export default function AudioWorkbench({ workbench, intro = null, defaultInputTab = "record", afterTimeline = null }) {
   const [inputTab, setInputTab] = useState(defaultInputTab);
   const pickerRef = useRef(null);
   const { selectedBackgroundTrack, voiceOffsetSeconds } = workbench;
@@ -135,6 +136,8 @@ export default function AudioWorkbench({ workbench, intro = null, defaultInputTa
             onBackgroundVolumeChange={workbench.setMusicVolume}
             voiceOffsetSeconds={voiceOffsetSeconds}
             onVoiceOffsetChange={workbench.setVoiceOffsetSeconds}
+            musicClip={workbench.musicClip}
+            onMusicClipChange={workbench.setMusicClip}
             onDropFiles={(files, rejected) => workbench.addFiles(files, rejected)}
             backgroundPending={Boolean(selectedBackgroundTrack) && !workbench.bgTrackBuffer}
             onRequestBackground={() => pickerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
@@ -145,6 +148,7 @@ export default function AudioWorkbench({ workbench, intro = null, defaultInputTa
             클립 {workbench.clips.length}개 · 총 {TimeFormat.duration(workbench.totalClipSeconds)}
           </p>
         )}
+        {afterTimeline}
       </section>
 
       <section ref={pickerRef} className="scroll-mt-4">

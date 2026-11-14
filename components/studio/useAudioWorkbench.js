@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AudioEngine, BackgroundMixer, ClipGain } from "@/lib/audio";
-import { AudioEditSettings, AudioProjectLoader, AudioRender } from "@/lib/audioProject";
+import { AudioEditSettings, AudioProjectLoader, AudioRender, MusicClip } from "@/lib/audioProject";
 import { MicrophoneDevices, MicrophoneRecorder, RecorderError } from "@/lib/recorder";
 import { useAppStore } from "@/lib/store";
 import { FocusGuard, Segment, Timeline, UndoHistory } from "@/lib/timeline";
@@ -29,6 +29,8 @@ export function useAudioWorkbench() {
   const [musicVolume, setMusicVolumeState] = useState(ClipGain.DEFAULT);
   // 배경음악만 먼저 나오는 인트로 길이(초).
   const [voiceOffsetSeconds, setVoiceOffsetState] = useState(BackgroundMixer.DEFAULT_VOICE_OFFSET_SECONDS);
+  // 배경음악 클립(타임라인 시작·곡 안 시작·끝) — 배경음악 트랙에서 가장자리를 끌어 바꿉니다.
+  const [musicClip, setMusicClipState] = useState(() => new MusicClip());
   const [bgTrackBuffer, setBgTrackBuffer] = useState(null);
   const [bgTrackUrl, setBgTrackUrl] = useState("");
   const [bgMixError, setBgMixError] = useState("");
@@ -119,7 +121,7 @@ export function useAudioWorkbench() {
   async function addClipFromBlob(blob, source, name) {
     try {
       const buffer = await AudioEngine.decodeBlob(blob);
-      updateSegments((prev) => [...prev, Segment.clip({ buffer, source, name })]);
+      updateSegments((prev) => [...prev, Segment.clip({ buffer, source, name, originSource: { blob } })]);
       setMicError("");
       return true;
     } catch {
@@ -163,11 +165,17 @@ export function useAudioWorkbench() {
 
   function setSelectedTrack(id) {
     setSelectedTrackState(id);
+    if (id !== selectedTrack) setMusicClipState(new MusicClip()); // 곡을 바꾸면 클립 위치는 처음부터
     setIsDirty(true);
   }
 
   function setMusicVolume(volume) {
     setMusicVolumeState(volume);
+    setIsDirty(true);
+  }
+
+  function setMusicClip(next) {
+    setMusicClipState(next);
     setIsDirty(true);
   }
 
@@ -206,7 +214,7 @@ export function useAudioWorkbench() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBackgroundTrack?.audioUrl]);
 
-  const settings = new AudioEditSettings({ backgroundTrackId: selectedTrack, musicVolume, voiceOffsetSeconds });
+  const settings = new AudioEditSettings({ backgroundTrackId: selectedTrack, musicVolume, voiceOffsetSeconds, musicClip });
   const clips = new Timeline(segments).clips;
 
   /** 지금 편집 상태로 저장할 결과. 배경음악을 못 불러오면 목소리만 저장합니다. 클립이 없으면 null. */
@@ -233,6 +241,7 @@ export function useAudioWorkbench() {
     setCanUndo(false);
     setIsDirty(false);
     setVoiceOffsetState(BackgroundMixer.DEFAULT_VOICE_OFFSET_SECONDS);
+    setMusicClipState(new MusicClip());
   }
 
   /** 저장된 콘텐츠를 불러와 편집을 시작합니다(불러온 상태는 "바뀐 것"으로 치지 않음). */
@@ -244,8 +253,26 @@ export function useAudioWorkbench() {
     setSelectedTrackState(project.settings.backgroundTrackId);
     setMusicVolumeState(project.settings.musicVolume);
     setVoiceOffsetState(project.settings.voiceOffsetSeconds);
+    setMusicClipState(project.settings.musicClip);
     setIsDirty(false);
     return project;
+  }
+
+  /** 저장해 둔 작업을 되살립니다(되살린 상태는 "바뀐 것"으로 치지 않음). */
+  function restore({ segments: restored, settings: saved }) {
+    setSegments(restored);
+    history().clear();
+    setCanUndo(false);
+    setSelectedTrackState(saved.backgroundTrackId);
+    setMusicVolumeState(saved.musicVolume);
+    setVoiceOffsetState(saved.voiceOffsetSeconds);
+    setMusicClipState(saved.musicClip);
+    setIsDirty(false);
+  }
+
+  /** 저장한 직후 — 지금 상태를 "저장됨"으로. */
+  function markSaved() {
+    setIsDirty(false);
   }
 
   return {
@@ -277,11 +304,15 @@ export function useAudioWorkbench() {
     setMusicVolume,
     voiceOffsetSeconds,
     setVoiceOffsetSeconds,
+    musicClip,
+    setMusicClip,
     bgMixError,
     // 결과
     settings,
     render,
     reset,
     load,
+    restore,
+    markSaved,
   };
 }

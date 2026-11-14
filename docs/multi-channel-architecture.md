@@ -244,6 +244,13 @@ channels ──< audios ──< comments
      `VAPID_SUBJECT`(예: `mailto:연락처 이메일`), `SUPABASE_SERVICE_ROLE_KEY`(Supabase → Project Settings → API의
      service_role 키, 서버 전용). 하나라도 없으면 푸시만 건너뛰고 예약 공개·앱 안 알림은 그대로 동작합니다.
 
+9. **작업 저장하기** (`0022_audio_drafts.sql`, `lib/audioDraft.js`, `components/studio/useAudioDrafts.js`)
+   - 콘텐츠 제작에서 오디오·배경음악 트랙 아래 [작업 저장하기] — 업로드(공개)와 별개로 편집 상태를 DB에 저장.
+     클립마다 원본·자른 위치·숨긴 부분·볼륨, 빈 공간, 배경음악(곡·볼륨·인트로·배경음악 클립 시작/끝), 제목·태그·설명,
+     공개 시점. 원본 오디오는 원본마다 한 번만 비공개 'drafts' 버킷에(녹음·올린 파일 그대로), 서버에 있던 오디오는 주소만.
+   - 맨 위 "저장한 작업"에서 불러오기·지우기. 그 채널의 콘텐츠 제작 권한이 있는 운영자끼리 함께 봅니다.
+   - 저장한 작업을 업로드하면 그 저장본은 자동으로 지웁니다. 배경이미지·대본 파일은 저장하지 않습니다.
+
 ### Supabase에 적용하는 순서
 
 1. SQL Editor에서 `0015_auth_viewer.sql`, `0016_engagement_mypage.sql` 실행
@@ -261,7 +268,8 @@ channels ──< audios ──< comments
    ```
 5. 운영자 계정으로 스튜디오 저장이 되는지 확인한 뒤 `0017_member_write_policies.sql`,
    이어서 `0018_channel_staff.sql` 실행(기능별 권한·운영자 지정), 이미지 갤러리는 `0019_image_gallery.sql`,
-   콘텐츠 다시 편집은 `0020_audio_edit_project.sql`, 예약 공개·알림은 `0021_scheduled_publish_notifications.sql`
+   콘텐츠 다시 편집은 `0020_audio_edit_project.sql`, 예약 공개·알림은 `0021_scheduled_publish_notifications.sql`,
+   작업 저장하기는 `0022_audio_drafts.sql`
 6. 콘텐츠 제작자 등 함께 운영할 분은 먼저 회원가입 → 소유자가 스튜디오 → 운영자 탭에서
    그분의 이메일로 지정하고 맡길 기능을 고르기
 7. (결제 연동 전) 구독자를 직접 지급할 때:

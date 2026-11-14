@@ -10,6 +10,7 @@ import { Channel, ChannelRepository } from "@/lib/channel";
 import { ChannelCommunityRepository, NoticeRepository } from "@/lib/community";
 import { AudioMarkRepository, CommentRepository, JournalRepository } from "@/lib/engagement";
 import { GalleryRepository } from "@/lib/gallery";
+import { AudioDraftRepository } from "@/lib/audioDraft";
 import { LibraryRepository } from "@/lib/library";
 import { SiteSettingsRepository } from "@/lib/siteSettings";
 
@@ -33,6 +34,7 @@ export default function ChannelProvider({ channel: channelData, children }) {
         notices: new NoticeRepository(scope),
         community: new ChannelCommunityRepository(scope),
         gallery: new GalleryRepository(scope),
+        drafts: new AudioDraftRepository(scope),
       },
     };
     // 채널이 바뀔 때만 다시 만듭니다(같은 채널 안에서 이동할 땐 그대로 유지).
