@@ -80,9 +80,14 @@ function EditForm({ item, onCancel, onSave }) {
         voiceUrl: result.row.voice_url || null,
         editSettings: result.row.edit_settings || null,
       },
-      notice: result.projectSkipped
-        ? "오디오는 바뀌었어요. 다만 DB 업데이트(마이그레이션 0020) 전이라 다음에 열면 배경음악이 섞인 채로 불러와요."
-        : "",
+      notice: [
+        result.projectSkipped
+          ? "오디오는 바뀌었어요. 다만 DB 업데이트(마이그레이션 0020) 전이라 다음에 열면 배경음악이 섞인 채로 불러와요."
+          : "",
+        result.cleanupFailed ? "예전 소리 파일을 지우지 못해 저장 공간에 남아 있어요(콘텐츠는 새 소리로 바뀌었어요)." : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
     };
   }
 
@@ -247,7 +252,9 @@ export default function ManageContentPanel() {
 
   async function handleDelete(item) {
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm(`"${item.title}"을(를) 삭제할까요? 이 작업은 되돌릴 수 없어요.`);
+      const confirmed = window.confirm(
+        `"${item.title}"을(를) 삭제할까요?\n소리·대본 파일과 댓글·좋아요까지 모두 지워지고 되돌릴 수 없어요.`
+      );
       if (!confirmed) return;
     }
     setError("");
@@ -259,6 +266,7 @@ export default function ManageContentPanel() {
           setError(`삭제에 실패했어요: ${result.reason}`);
           return;
         }
+        setNotice(result.cleanupFailed ? "콘텐츠는 지웠지만 일부 파일을 저장 공간에서 지우지 못했어요." : "");
       }
       removeAudioLocal(item.id);
       if (editingId === item.id) setEditingId(null);
