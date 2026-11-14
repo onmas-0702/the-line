@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChannelCommunityRepository, NoticeRepository } from "@/lib/community";
 import { AudioMarkRepository, JournalRepository } from "@/lib/engagement";
 import { MyGalleryRepository } from "@/lib/gallery";
+import { NotificationRepository, PushSubscriptionRepository } from "@/lib/notifications";
 
 export function useMyPageRepos() {
   return useMemo(
@@ -15,6 +16,8 @@ export function useMyPageRepos() {
       marks: new AudioMarkRepository(),
       journal: new JournalRepository(),
       myGallery: new MyGalleryRepository(),
+      notifications: new NotificationRepository(),
+      pushSubscriptions: new PushSubscriptionRepository(),
     }),
     []
   );

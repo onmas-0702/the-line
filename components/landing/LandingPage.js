@@ -17,6 +17,7 @@ import MembershipNudge from "@/components/subscription/MembershipNudge";
 import { AudioRepository } from "@/lib/audioStorage";
 import { Channel, ChannelRepository, ChannelSlug } from "@/lib/channel";
 import { ChannelThumbnails, FeedSections, ListeningHistory } from "@/lib/feed";
+import { PublishSchedule } from "@/lib/publishing";
 import { AudioMapper } from "@/lib/mappers";
 import { SiteSettingsRepository } from "@/lib/siteSettings";
 import { initialAudios } from "@/lib/mockData";
@@ -61,7 +62,8 @@ function usePlatformFeed() {
       const thumbnails = new ChannelThumbnails(settings.rows);
       setAudios(
         result.ok
-          ? withHref(result.rows.map(AudioMapper.fromRow), channels.map, thumbnails)
+          ? // 운영자에게는 예약 중인 콘텐츠도 내려오지만, 메인 화면에는 공개된 것만.
+            withHref(result.rows.map(AudioMapper.fromRow).filter((a) => PublishSchedule.isLive(a)), channels.map, thumbnails)
           : withHref(initialAudios)
       );
       setIsLoading(false);

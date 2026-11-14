@@ -52,7 +52,14 @@ export default function PricingView({ viewer: viewerData, plans: planData }) {
         ))}
       </ul>
 
-      {viewer.isSubscriber ? (
+      {AccessPolicy.isAdmin(viewer) && !viewer.isSubscriber ? (
+        <div className="rounded-2xl border border-[#e8c58e] bg-[#fbf1df] p-4 text-center text-sm text-night-800">
+          관리자 계정은 멤버십 없이 모든 기능을 이용할 수 있어요.{" "}
+          <Link href={MyPageMenu.BASE_PATH} className="font-medium underline">
+            마이 페이지로 가기
+          </Link>
+        </div>
+      ) : viewer.isSubscriber ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm text-emerald-800">
           이미 멤버십을 이용 중이에요 ({new SubscriptionStatus(viewer.subscription).label}).{" "}
           <Link href={MyPageMenu.BASE_PATH} className="font-medium underline">

@@ -2,6 +2,7 @@ import "./globals.css";
 import { NavigationTracker } from "@/components/common/BackButton";
 import TouchFeedbackEnabler from "@/components/common/TouchFeedback";
 import InstallBanner from "@/components/InstallBanner";
+import DispatchTick from "@/components/notifications/DispatchTick";
 import ViewerProvider from "@/components/ViewerProvider";
 import { PLATFORM_NAME } from "@/lib/mockData";
 import { ServerViewer } from "@/lib/supabaseServer";
@@ -37,6 +38,7 @@ export default async function RootLayout({ children }) {
         <NavigationTracker />
         <TouchFeedbackEnabler />
         <InstallBanner />
+        <DispatchTick />
       </body>
     </html>
   );

@@ -6,10 +6,12 @@
 import CommunitySection from "@/components/mypage/CommunitySection";
 import GallerySection from "@/components/mypage/GallerySection";
 import JournalSection from "@/components/mypage/JournalSection";
+import NotificationsSection from "@/components/mypage/NotificationsSection";
 import NoticesSection from "@/components/mypage/NoticesSection";
 import SavedSection from "@/components/mypage/SavedSection";
 
 export const MY_PAGE_SECTION_VIEWS = Object.freeze({
+  notifications: NotificationsSection,
   notices: NoticesSection,
   saved: SavedSection,
   journal: JournalSection,

@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogIn, LogOut, Sparkles, UserPlus, UserRound } from "lucide-react";
+import NotificationBell from "@/components/notifications/NotificationBell";
 import { useViewer } from "@/components/ViewerProvider";
 import { MemberTier } from "@/lib/access";
 import { AuthPaths } from "@/lib/auth";
@@ -91,6 +92,7 @@ export default function AccountMenu({ variant = "nav", leading = [], membership 
     <div className={style.wrap}>
       {leadingLinks}
       {membershipLink}
+      <NotificationBell className={style.outline} iconOnly={iconOnly} withLabel={withIcons} />
       <Link href={MyPageMenu.BASE_PATH} className={style.solid} aria-label={MyPageMenu.TITLE} title={`${name} · ${MemberTier.label(viewer.tier)}`}>
         {label(UserRound, MyPageMenu.TITLE)}
       </Link>

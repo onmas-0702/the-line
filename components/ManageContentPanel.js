@@ -1,26 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { AlertCircle, FileAudio, Pencil, Trash2, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertCircle, CalendarClock, Loader2, Pencil, Trash2, X } from "lucide-react";
 import ContentCoverPicker from "@/components/ContentCoverPicker";
 import ContentThumbnail from "@/components/ContentThumbnail";
 import { useChannel } from "@/components/ChannelProvider";
+import AudioWorkbench from "@/components/studio/AudioWorkbench";
+import { useAudioWorkbench } from "@/components/studio/useAudioWorkbench";
 import { TimeFormat } from "@/lib/audio";
-import { AudioMetadata, ReplacementAudioFile } from "@/lib/audioStorage";
+import { AudioMetadata } from "@/lib/audioStorage";
 import { ContentCoverChoice } from "@/lib/contentCover";
 import { useAppStore } from "@/lib/store";
+import { PublishSchedule } from "@/lib/publishing";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
+import PublishTimePicker from "@/components/studio/PublishTimePicker";
 
-// 콘텐츠 수정 — 오디오 파일 바꾸기, 배경이미지, 제목·태그·간단한 설명.
+// 콘텐츠 수정 — 오디오를 제작 화면과 같은 작업대에서 다시 편집(자르기·트리밍·볼륨·배경음악 바꾸기,
+// 새 녹음·파일 추가), 배경이미지, 제목·태그·간단한 설명.
 // (설교자·교회·성경 본문·카테고리는 입력칸을 없앴고, 이미 저장된 값은 그대로 둡니다.)
 function EditForm({ item, onCancel, onSave }) {
   const { repos } = useChannel();
   const [title, setTitle] = useState(item.title || "");
-  const [newAudio, setNewAudio] = useState(null); // ReplacementAudioFile
-  const [audioError, setAudioError] = useState("");
+  const workbench = useAudioWorkbench();
+  const [loadState, setLoadState] = useState({ status: "loading", hasSeparateVoice: true, error: "" });
   const [tagsInput, setTagsInput] = useState((item.tags || []).join(", "));
   const [description, setDescription] = useState(item.description || "");
   const [coverChoice, setCoverChoice] = useState(() => ContentCoverChoice.keep(item));
+  // 예약 중인 콘텐츠만 공개 시점을 바꿀 수 있어요(예약 시각 옮기기 / 지금 공개).
+  const [pendingAt] = useState(() => PublishSchedule.pendingAt(item));
+  const [publish, setPublish] = useState(() => (pendingAt ? PublishSchedule.at(pendingAt) : PublishSchedule.now()));
+  const publishChanged = pendingAt !== null && publish.toColumn() !== PublishSchedule.at(pendingAt).toColumn();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,23 +46,44 @@ function EditForm({ item, onCancel, onSave }) {
     return { patch, notice: saved.ok ? "" : pendingNotice };
   }
 
-  async function pickAudio(e) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    setAudioError("");
-    const { audioFile, error: fileError } = await ReplacementAudioFile.from(file);
-    if (fileError) return setAudioError(fileError);
-    setNewAudio(audioFile);
-  }
+  // 열 때 저장된 오디오(목소리만 파일이 있으면 그것, 없으면 완성본)와 배경음악 설정을 불러옵니다.
+  useEffect(() => {
+    let cancelled = false;
+    workbench
+      .load(item)
+      .then((project) => {
+        if (!cancelled) setLoadState({ status: "ready", hasSeparateVoice: project.hasSeparateVoice, error: "" });
+      })
+      .catch((e) => {
+        if (!cancelled) setLoadState({ status: "error", hasSeparateVoice: false, error: e?.message || "알 수 없는 오류" });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id]);
 
-  /** 새 오디오 파일을 골랐으면 올리고, 화면에 반영할 값을 돌려줍니다. */
+  /** 오디오를 바꿨으면 다시 만들어 올리고, 화면에 반영할 값을 돌려줍니다. */
   async function saveAudio() {
-    if (!newAudio) return { ok: true, patch: {} };
-    const patch = { duration: TimeFormat.duration(newAudio.durationSeconds), durationSeconds: newAudio.durationSeconds };
-    if (!isSupabaseConfigured) return { ok: true, patch: { ...patch, previewUrl: newAudio.previewUrl } };
-    const result = await repos.audios.replaceAudioFile(item.id, newAudio);
+    if (!workbench.isDirty) return { ok: true, patch: {}, notice: "" };
+    const render = await workbench.render();
+    if (!render) return { ok: false, reason: "클립이 하나도 없어요. 녹음하거나 파일을 올려주세요." };
+    const patch = { duration: TimeFormat.duration(render.durationSeconds), durationSeconds: render.durationSeconds };
+    if (!isSupabaseConfigured) return { ok: true, patch: { ...patch, previewUrl: URL.createObjectURL(render.mixBlob()) }, notice: "" };
+    const result = await repos.audios.replaceEditedAudio(item.id, render);
     if (!result.ok) return { ok: false, reason: result.reason };
-    return { ok: true, patch: { ...patch, previewUrl: result.row.audio_url } };
+    return {
+      ok: true,
+      patch: {
+        ...patch,
+        previewUrl: result.row.audio_url,
+        voiceUrl: result.row.voice_url || null,
+        editSettings: result.row.edit_settings || null,
+      },
+      notice: result.projectSkipped
+        ? "오디오는 바뀌었어요. 다만 DB 업데이트(마이그레이션 0020) 전이라 다음에 열면 배경음악이 섞인 채로 불러와요."
+        : "",
+    };
   }
 
   async function handleSave() {
@@ -69,12 +99,16 @@ function EditForm({ item, onCancel, onSave }) {
       tags,
       description: description.trim(),
     };
+    if (publishChanged && publish.problem()) {
+      setError(publish.problem());
+      return;
+    }
     setIsSaving(true);
     setError("");
     try {
       const audio = await saveAudio();
       if (!audio.ok) {
-        setError(`오디오 파일을 바꾸지 못했어요: ${audio.reason}`);
+        setError(`오디오를 저장하지 못했어요: ${audio.reason}`);
         return;
       }
       if (isSupabaseConfigured) {
@@ -84,8 +118,20 @@ function EditForm({ item, onCancel, onSave }) {
           return;
         }
       }
+      let publishPatch = {};
+      if (publishChanged && isSupabaseConfigured) {
+        const result = await repos.audios.updatePublishAt(item.id, publish);
+        if (!result.ok) {
+          setError(`공개 시점을 바꾸지 못했어요: ${result.reason}`);
+          return;
+        }
+        publishPatch = { publishAt: result.row.publish_at };
+      }
       const cover = await saveCover();
-      onSave({ ...metadata, ...audio.patch, ...cover.patch }, cover.notice);
+      onSave(
+        { ...metadata, ...audio.patch, ...cover.patch, ...publishPatch },
+        [audio.notice, cover.notice].filter(Boolean).join(" ")
+      );
     } finally {
       setIsSaving(false);
     }
@@ -93,43 +139,39 @@ function EditForm({ item, onCancel, onSave }) {
 
   return (
     <div className="mt-3 space-y-2.5 rounded-lg bg-stone-50 p-3">
-      <div>
-        <label className="block text-xs font-medium text-stone-500">오디오 파일</label>
-        <div className="mt-1 space-y-2 rounded-lg border border-stone-200 bg-white p-3">
-          <p className="text-xs text-stone-500">
-            {newAudio ? (
-              <>
-                새 파일: <span className="font-medium text-stone-800">{newAudio.file.name}</span> ·{" "}
-                {TimeFormat.duration(newAudio.durationSeconds)} <span className="text-night-700">(저장하면 바뀌어요)</span>
-              </>
-            ) : (
-              <>지금 파일 · {item.duration}</>
-            )}
+      <div className="space-y-6 rounded-lg border border-stone-200 bg-white p-3">
+        {loadState.status === "loading" ? (
+          <p className="flex items-center justify-center gap-2 py-8 text-xs text-stone-500">
+            <Loader2 size={14} className="animate-spin" /> 오디오를 불러오는 중…
           </p>
-          {(newAudio || item.previewUrl) && (
-            <audio
-              key={newAudio ? newAudio.previewUrl : "current"}
-              controls
-              preload="none"
-              src={newAudio ? newAudio.previewUrl : item.previewUrl}
-              className="h-9 w-full"
-            />
-          )}
-          <div className="flex items-center gap-2">
-            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:border-stone-400">
-              <FileAudio size={14} strokeWidth={1.5} />
-              {newAudio ? "다른 파일 고르기" : "새 파일로 바꾸기"}
-              <input type="file" accept={ReplacementAudioFile.ACCEPT} onChange={pickAudio} disabled={isSaving} className="hidden" />
-            </label>
-            {newAudio && (
-              <button type="button" onClick={() => setNewAudio(null)} className="text-xs text-stone-400 hover:text-stone-600">
-                바꾸지 않기
-              </button>
-            )}
-          </div>
-          {audioError && <p className="text-xs text-red-600">{audioError}</p>}
-        </div>
+        ) : loadState.status === "error" ? (
+          <p className="py-6 text-center text-xs text-red-600">오디오를 불러오지 못했어요: {loadState.error}</p>
+        ) : (
+          <AudioWorkbench
+            workbench={workbench}
+            defaultInputTab="upload"
+            intro={
+              <p className={`mt-1 text-xs ${loadState.hasSeparateVoice ? "text-stone-400" : "text-amber-700"}`}>
+                {loadState.hasSeparateVoice
+                  ? "저장했던 목소리와 배경음악 설정을 그대로 불러왔어요. 바꾼 뒤 아래 저장을 누르면 새로 믹싱돼요."
+                  : "이 콘텐츠는 다시 편집 기능 전에 저장돼서 배경음악이 이미 섞여 있어요. 자르기·트리밍·볼륨은 그대로 되지만, 배경음악을 고르면 기존 소리 위에 하나 더 겹쳐요. 한 번 저장하면 다음부터는 목소리만 따로 저장돼요."}
+              </p>
+            }
+          />
+        )}
+        <p className="text-[11px] text-stone-400">
+          지금 {item.duration}
+          {workbench.isDirty && <span className="text-night-700"> · 오디오가 바뀌었어요(저장하면 반영돼요)</span>}
+        </p>
       </div>
+      {pendingAt && (
+        <div>
+          <label className="block text-xs font-medium text-stone-500">공개 시점</label>
+          <div className="mt-1 rounded-lg border border-stone-200 bg-white p-3">
+            <PublishTimePicker value={publish} onChange={setPublish} disabled={isSaving} nowLabel="지금 공개" />
+          </div>
+        </div>
+      )}
       <div>
         <label className="block text-xs font-medium text-stone-500">배경이미지</label>
         <div className="mt-1 rounded-lg border border-stone-200 bg-white p-3">
@@ -174,13 +216,24 @@ function EditForm({ item, onCancel, onSave }) {
         <button
           type="button"
           onClick={handleSave}
-          disabled={isSaving}
+          disabled={isSaving || loadState.status === "loading"}
           className="rounded-full bg-night-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-night-800 disabled:cursor-not-allowed disabled:bg-stone-300"
         >
           {isSaving ? "저장 중…" : "저장"}
         </button>
       </div>
     </div>
+  );
+}
+
+/** 예약 중이면 "예약 · 11월 20일 (목) 오후 9:00 공개" 표시. */
+function ScheduledBadge({ item }) {
+  const pendingAt = PublishSchedule.pendingAt(item);
+  if (!pendingAt) return null;
+  return (
+    <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+      <CalendarClock size={12} /> 예약 · {PublishSchedule.label(pendingAt)} 공개
+    </p>
   );
 }
 
@@ -258,6 +311,7 @@ export default function ManageContentPanel() {
                 <p className="mt-1 text-xs text-stone-400">
                   {item.date} · {item.duration} · 재생 {item.plays}회
                 </p>
+                <ScheduledBadge item={item} />
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <button

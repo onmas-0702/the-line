@@ -156,8 +156,10 @@ export default function ChannelHeader({ contentCount }) {
             </Link>
             )}
           </>
-        ) : viewer.isSubscriber ? (
-          <span className="rounded-full bg-stone-100 px-5 py-2 text-sm font-medium text-stone-600">{MembershipOffer.ACTIVE_LABEL}</span>
+        ) : AccessPolicy.hasSubscriberAccess(viewer) ? (
+          <span className="rounded-full bg-stone-100 px-5 py-2 text-sm font-medium text-stone-600">
+            {viewer.isSubscriber ? MembershipOffer.ACTIVE_LABEL : MembershipOffer.ADMIN_LABEL}
+          </span>
         ) : (
           <Link
             href={MembershipOffer.PATH}

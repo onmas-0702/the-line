@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useViewer } from "@/components/ViewerProvider";
+import { AccessPolicy } from "@/lib/access";
 import { AuthPaths } from "@/lib/auth";
 import { MyPageMenu } from "@/lib/myPage";
-import { SubscriptionPaths, SubscriptionStatus } from "@/lib/subscription";
+import { MembershipOffer, SubscriptionPaths, SubscriptionStatus } from "@/lib/subscription";
 
 export default function MyPageOverview() {
   const viewer = useViewer();
@@ -19,7 +20,9 @@ export default function MyPageOverview() {
           <Row label="이름">{viewer.displayName || "-"}</Row>
           <Row label="이메일">{viewer.email || "-"}</Row>
           <Row label="구독">
-            {viewer.isSubscriber ? (
+            {AccessPolicy.isAdmin(viewer) && !viewer.isSubscriber ? (
+              <span className="font-medium text-night-700">{MembershipOffer.ADMIN_LABEL}</span>
+            ) : viewer.isSubscriber ? (
               <span className="font-medium text-emerald-700">
                 {status.label}
                 {status.periodEndLabel && <span className="font-normal text-stone-400"> · {status.periodEndLabel}까지</span>}

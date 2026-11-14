@@ -218,6 +218,31 @@ channels ──< audios ──< comments
    - 구독자만 **원본 다운로드 / 모바일 배경이미지** 받기와 **마이 갤러리** 담기(마이 페이지 → 갤러리).
      원본·배경이미지는 비공개 버킷 `gallery` — 구독자에게만 5분짜리 서명 URL(`AccessPolicy.canUseGallery`,
      DB 정책 `gallery_bucket_subscriber_read`). 휴대폰은 공유 창(사진에 저장), 앱 안 브라우저는 이미지를 열어 길게 눌러 저장.
+7. **콘텐츠 다시 편집** (`0020_audio_edit_project.sql`, `lib/audioProject.js`) — 스튜디오 → 콘텐츠 관리에서
+   제작 화면과 같은 오디오 작업대(`components/studio/AudioWorkbench.js`)로 자르기·트리밍·볼륨·배경음악 바꾸기.
+   저장할 때 완성본과 함께 "목소리만"(`voice_url`)과 배경음악 설정(`edit_settings`)을 남겨서, 다시 열면 목소리
+   위에 배경음악을 새로 섞습니다. 0020 전에 저장한 콘텐츠는 배경음악이 섞인 완성본을 클립으로 불러옵니다.
+
+8. **예약 공개·구독자 알림** (`0021_scheduled_publish_notifications.sql`, `lib/publishing.js`, `lib/notifications.js`,
+   `lib/publicationNotifier.js`, `app/api/notifications/dispatch/route.js`, `public/sw.js`)
+   - 스튜디오 제작 화면 "공개 시점": 바로 공개 / 예약 공개(날짜·시각). 콘텐츠 관리에서 예약 시각을 옮기거나 지금 공개.
+   - 공개 여부는 DB 읽기 정책(`publish_at <= now()`, 운영자는 예약 중인 것도 봄)이 정하므로 정확히 그 시각에 보입니다.
+   - 앱 안 알림: 상단 종 모양 배지 + 마이 페이지 → 알림. "공개 시각 > 마지막으로 본 시각"으로 계산(별도 발송 없음).
+   - 휴대폰 푸시: 마이 페이지 → 알림 → [알림 켜기](구독자만). 공개 시각이 지나면 `/api/notifications/dispatch`가
+     콘텐츠마다 한 번 발송(`audios.notified_at`). 아이폰은 iOS 16.4+에서 홈 화면에 추가한 앱으로 열었을 때만 받습니다.
+   - 발송을 깨우는 것: ① 사이트 방문 때 브라우저가 3분에 한 번 조용히 호출(`DispatchTrigger`) ② 권장 — 예약 작업.
+     Vercel 무료 요금제의 크론은 하루 1번뿐이라, Supabase에서 5분마다 부르게 합니다(SQL Editor):
+     ```sql
+     create extension if not exists pg_cron;
+     create extension if not exists pg_net;
+     select cron.schedule('the-line-push-dispatch', '*/5 * * * *', $$
+       select net.http_post(url := 'https://<배포 주소>/api/notifications/dispatch',
+                            headers := '{"Content-Type": "application/json"}'::jsonb, body := '{}'::jsonb);
+     $$);
+     ```
+   - 환경변수(.env.local과 Vercel 모두): `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`(만들어 둠),
+     `VAPID_SUBJECT`(예: `mailto:연락처 이메일`), `SUPABASE_SERVICE_ROLE_KEY`(Supabase → Project Settings → API의
+     service_role 키, 서버 전용). 하나라도 없으면 푸시만 건너뛰고 예약 공개·앱 안 알림은 그대로 동작합니다.
 
 ### Supabase에 적용하는 순서
 
@@ -235,7 +260,8 @@ channels ──< audios ──< comments
    on conflict (channel_id, user_id) do update set role = 'owner';
    ```
 5. 운영자 계정으로 스튜디오 저장이 되는지 확인한 뒤 `0017_member_write_policies.sql`,
-   이어서 `0018_channel_staff.sql` 실행(기능별 권한·운영자 지정), 이미지 갤러리는 `0019_image_gallery.sql`
+   이어서 `0018_channel_staff.sql` 실행(기능별 권한·운영자 지정), 이미지 갤러리는 `0019_image_gallery.sql`,
+   콘텐츠 다시 편집은 `0020_audio_edit_project.sql`, 예약 공개·알림은 `0021_scheduled_publish_notifications.sql`
 6. 콘텐츠 제작자 등 함께 운영할 분은 먼저 회원가입 → 소유자가 스튜디오 → 운영자 탭에서
    그분의 이메일로 지정하고 맡길 기능을 고르기
 7. (결제 연동 전) 구독자를 직접 지급할 때:

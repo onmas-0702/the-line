@@ -1,10 +1,10 @@
 "use client";
 
 // 배경음악 보관함 하나(관리자 라이브러리 / 내 라이브러리) — 업로드, 악기·분위기 필터,
-// 악기별로 묶인 목록, 곡마다 미리듣기·선택·분류 변경·삭제.
+// 악기별로 묶인 목록, 곡마다 미리듣기·[트랙에 올리기](편집 타임라인의 배경음악 트랙)·분류 변경·삭제.
 
 import { useMemo, useState } from "react";
-import { Pause, Play, Tag, Trash2, Upload } from "lucide-react";
+import { Check, ListPlus, Pause, Play, Tag, Trash2, Upload } from "lucide-react";
 import ClassificationPicker, { Chip } from "@/components/music/ClassificationPicker";
 import { MusicTaxonomy, TrackClassification } from "@/lib/musicTaxonomy";
 
@@ -27,8 +27,7 @@ function TrackRow({ track, selected, onSelect, previewing, onPreview, onDelete, 
   return (
     <div className={`rounded-lg border p-2 transition ${selected ? "border-night-700 bg-night-50" : "border-stone-200 bg-white"}`}>
       <div className="flex items-start gap-2">
-        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
-          <input type="radio" name="bgTrack" checked={selected} onChange={onSelect} className="mt-1.5 accent-night-700" />
+        <div className="flex min-w-0 flex-1 items-start gap-2">
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm text-stone-800">{track.name}</span>
             <span
@@ -40,7 +39,7 @@ function TrackRow({ track, selected, onSelect, previewing, onPreview, onDelete, 
             </span>
             {previewing && <span className="ml-1.5 text-[11px] text-night-600">미리듣기 중…</span>}
           </span>
-        </label>
+        </div>
         <span className="mt-1 shrink-0 text-xs tabular-nums text-stone-400">{track.duration}</span>
         <button
           type="button"
@@ -49,6 +48,20 @@ function TrackRow({ track, selected, onSelect, previewing, onPreview, onDelete, 
           aria-label={previewing ? "미리듣기 정지" : "미리듣기"}
         >
           {previewing ? <Pause size={13} /> : <Play size={13} />}
+        </button>
+        {/* 편집 타임라인의 배경음악 트랙에 올리기 / 내리기 */}
+        <button
+          type="button"
+          onClick={onSelect}
+          disabled={!track.audioUrl}
+          aria-pressed={selected}
+          className={`flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+            selected ? "bg-night-700 text-white" : "border border-night-300 text-night-700"
+          }`}
+          title={!track.audioUrl ? "파일이 없는 곡이라 쓸 수 없어요" : selected ? "누르면 배경음악 트랙에서 내려요" : "편집 타임라인의 배경음악 트랙에 올려요"}
+        >
+          {selected ? <Check size={13} /> : <ListPlus size={13} />}
+          {selected ? "트랙에 올림" : "트랙에 올리기"}
         </button>
         {onReclassify && (
           <button
@@ -273,7 +286,7 @@ export default function TrackLibrary({
                   key={track.id}
                   track={track}
                   selected={selectedTrackId === track.id}
-                  onSelect={() => onSelect(track.id)}
+                  onSelect={() => onSelect(selectedTrackId === track.id ? null : track.id)}
                   previewing={previewingId === track.id}
                   onPreview={() => onPreview(track)}
                   onDelete={onDelete ? () => onDelete(track) : null}

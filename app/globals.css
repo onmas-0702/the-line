@@ -95,6 +95,27 @@ body {
 }
 
 /*
+ * 녹음 시작 동그라미 버튼(.rec-red)은 촛불 반전의 예외 — 녹음은 언제나 붉은색으로 알아보게 합니다.
+ * 롤오버해도 호박색으로 바뀌지 않고, 조금 더 짙은 빨강 + 붉은 빛 번짐.
+ */
+@media (hover: hover) {
+  button.rec-red:not(:disabled):hover {
+    background-color: #b91c1c;
+    border-color: #b91c1c;
+    color: #fff;
+    filter: drop-shadow(0 0 8px rgb(239 68 68 / 0.45));
+  }
+}
+@media (hover: none) {
+  button.rec-red:not(:disabled):active {
+    background-color: #b91c1c;
+    border-color: #b91c1c;
+    color: #fff;
+    filter: drop-shadow(0 0 8px rgb(239 68 68 / 0.45));
+  }
+}
+
+/*
  * 촛불 롤오버(밝은 화면용, .lamp-soft) — 흰 바탕 위의 큰 선택 카드(예: 멤버십 월간·연간)용.
  * 위 "촛불 반전"과 같은 촛불빛이지만, 넓은 카드는 바탕을 크림빛으로만 살짝 물들이고
  * 글자색은 그대로 둡니다 — 촛불이 가까이 다가온 듯 은은하게. 위 규칙보다

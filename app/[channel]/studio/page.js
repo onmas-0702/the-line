@@ -1,32 +1,34 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Mic, Upload, CheckCircle2, AlertCircle, Undo2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, FileText } from "lucide-react";
 import CommunityPanel from "@/components/studio/CommunityPanel";
 import GalleryStudioPanel from "@/components/studio/GalleryStudioPanel";
 import StaffPanel from "@/components/studio/StaffPanel";
 import StudioTabBar from "@/components/studio/StudioTabBar";
+import AudioWorkbench from "@/components/studio/AudioWorkbench";
+import PublishTimePicker from "@/components/studio/PublishTimePicker";
+import { useAudioWorkbench } from "@/components/studio/useAudioWorkbench";
+import FileDropZone from "@/components/common/FileDropZone";
 import { useViewer } from "@/components/ViewerProvider";
 import { AccessPolicy } from "@/lib/access";
 import { FeatureFlags } from "@/lib/featureFlags";
+import { FileKind } from "@/lib/fileDrop";
 import { StudioTab } from "@/lib/staff";
-import ClipTimeline from "@/components/ClipTimeline";
 import ContentCoverPicker from "@/components/ContentCoverPicker";
-import BackgroundMusicPicker from "@/components/BackgroundMusicPicker";
 import DesignSkinPanel from "@/components/DesignSkinPanel";
 import ManageContentPanel from "@/components/ManageContentPanel";
-import { AudioEngine, BackgroundMixer, TimeFormat, WavEncoder } from "@/lib/audio";
+import { TimeFormat } from "@/lib/audio";
 import { useChannel } from "@/components/ChannelProvider";
 import { AudioMetadata } from "@/lib/audioStorage";
 import { ContentCoverChoice } from "@/lib/contentCover";
-import { MicrophoneDevices, MicrophoneRecorder, RecorderError } from "@/lib/recorder";
+import { PublishSchedule } from "@/lib/publishing";
 import { useAppStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
-import { FocusGuard, Segment, Timeline, UndoHistory } from "@/lib/timeline";
 
 export default function RecordPage() {
-  const { addAudio, addAudioFromRow, updateAudioLocal, personalTracks } = useAppStore();
+  const { addAudio, addAudioFromRow, updateAudioLocal } = useAppStore();
   const { channel, repos } = useChannel();
 
   // 페이지 최상단 탭: 제작(녹음/편집/저장) / 콘텐츠 관리(업로드한 것 삭제·편집) /
@@ -42,23 +44,8 @@ export default function RecordPage() {
   const requestedTab = useSearchParams().get("tab");
   const [selectedTab, setMainTab] = useState(requestedTab);
   const mainTab = visibleTabs.some((t) => t.key === selectedTab) ? selectedTab : visibleTabs[0]?.key;
-  const [activeTab, setActiveTab] = useState("record");
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordSeconds, setRecordSeconds] = useState(0);
-  const [inputDevices, setInputDevices] = useState([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState("");
-  const [micError, setMicError] = useState("");
-  const [isPreparingMic, setIsPreparingMic] = useState(false);
-  const [segments, setSegments] = useState([]);
-
-  const [selectedTrack, setSelectedTrack] = useState(null);
-  // 배경음악 볼륨 — 나레이션 클립의 볼륨 게인과 완전히 같은 척도입니다
-  // (0~2, 기본값 1 = 원본 그대로/중앙). 편집 타임라인 안의 배경음악 트랙
-  // 세로선을 드래그해서 조절해요.
-  const [musicVolume, setMusicVolume] = useState(1);
-  // 배경음악이 먼저 나오고 목소리가 이어서 시작하기까지의 인트로 길이(초).
-  // 편집 타임라인의 하늘색 구간을 드래그하면 이 값이 바뀝니다.
-  const [voiceOffsetSeconds, setVoiceOffsetSeconds] = useState(BackgroundMixer.DEFAULT_VOICE_OFFSET_SECONDS);
+  // 녹음·업로드·편집·배경음악 — 콘텐츠 관리의 "다시 편집"과 같은 작업대를 씁니다.
+  const workbench = useAudioWorkbench();
 
   // 메타데이터 — 나중에 검색에 쓰일 수 있도록 기본 항목을 받아둡니다.
   const [title, setTitle] = useState("");
@@ -67,228 +54,50 @@ export default function RecordPage() {
   const [scriptFile, setScriptFile] = useState(null);
   // 콘텐츠 배경이미지 — 고르지 않으면 채널 기본 배경 이미지를 씁니다(로고는 쓰지 않음).
   const [coverChoice, setCoverChoice] = useState(() => ContentCoverChoice.none());
+  // 공개 시점 — 바로 공개 / 예약 공개(그 시각에 공개 + 구독자 알림)
+  const [publish, setPublish] = useState(() => PublishSchedule.now());
 
-  const [savedMessage, setSavedMessage] = useState(false);
+  const [savedMessage, setSavedMessage] = useState(""); // 저장 완료 안내(바로 공개 / 예약)
   const [saveError, setSaveError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [bgMixError, setBgMixError] = useState("");
 
-  const recorderRef = useRef(null);
-  const recordTimerRef = useRef(null);
-  // segments 변경 이력 — 실행 취소를 여러 번 계속 누를 수 있게 합니다.
-  const historyRef = useRef(null);
-  const [canUndo, setCanUndo] = useState(false);
-
-  function history() {
-    if (!historyRef.current) historyRef.current = new UndoHistory();
-    return historyRef.current;
-  }
-
-  function recorder() {
-    if (!recorderRef.current) {
-      recorderRef.current = new MicrophoneRecorder({
-        onPreparingChange: setIsPreparingMic,
-        onDevicesRefreshed: setInputDevices,
-        onStart: () => {
-          setIsRecording(true);
-          setRecordSeconds(0);
-          recordTimerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
-        },
-      });
-    }
-    return recorderRef.current;
-  }
-
-  // segments를 바꾸는 모든 경로(녹음/업로드로 클립 추가, 편집 타임라인의 자르기/삭제/
-  // 순서변경)가 이 함수를 거치도록 해서, 바뀌기 직전 상태를 이력에 쌓아둡니다.
-  function updateSegments(next) {
-    history().push(segments);
-    setCanUndo(true);
-    setSegments((prev) => (typeof next === "function" ? next(prev) : next));
-  }
-
-  function undo() {
-    if (!history().canUndo) return;
-    const restored = history().pop();
-    setCanUndo(history().canUndo);
-    setSegments(restored);
-  }
-
-  // Ctrl+Z / Cmd+Z — 입력창(제목 등)에 포커스가 있을 때는 브라우저 기본 텍스트
-  // 되돌리기를 그대로 두고, 그 외에는 방금 편집한 클립 상태를 되돌립니다.
-  useEffect(() => {
-    function handleKeyDown(e) {
-      const isUndoCombo = (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z";
-      if (!isUndoCombo) return;
-      if (FocusGuard.isTyping()) return;
-      e.preventDefault();
-      undo();
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // 실제 마이크 목록 (권한을 한 번 허용해야 이름이 표시됩니다).
-  useEffect(() => {
-    let cancelled = false;
-    async function loadDevices() {
-      try {
-        const mics = await MicrophoneDevices.list();
-        if (cancelled) return;
-        setInputDevices(mics);
-        setSelectedDeviceId((prev) => (prev && mics.some((m) => m.deviceId === prev) ? prev : mics[0]?.deviceId || ""));
-      } catch (e) {
-        // ignore — device list just stays empty, default mic will be used
-      }
-    }
-    loadDevices();
-    const unsubscribe = MicrophoneDevices.onChange(loadDevices);
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      clearInterval(recordTimerRef.current);
-      recorderRef.current?.dispose();
-    };
-  }, []);
-
-  async function addClipFromBlob(blob, source, name) {
-    try {
-      const buffer = await AudioEngine.decodeBlob(blob);
-      updateSegments((prev) => [...prev, Segment.clip({ buffer, source, name })]);
-      setMicError("");
-    } catch (e) {
-      setMicError("오디오를 처리하는 중 문제가 발생했습니다. 다른 파일이나 기기로 다시 시도해주세요.");
-    }
-  }
-
-  async function startRecording() {
-    setMicError("");
-    const clipNumber = new Timeline(segments).clips.length + 1;
-    try {
-      await recorder().start({
-        deviceId: selectedDeviceId,
-        onRecorded: (blob) => addClipFromBlob(blob, "recorded", `녹음 클립 ${clipNumber}`),
-      });
-    } catch (err) {
-      setMicError(err instanceof RecorderError ? err.message : "마이크에 접근할 수 없습니다. 브라우저의 마이크 권한을 확인해주세요.");
-    }
-  }
-
-  function stopRecording() {
-    // 아직 "마이크 준비 중" 단계라면(적응 대기 중 취소) 녹음을 시작하지도 않고
-    // 조용히 정리됩니다.
-    if (recorder().stop() === "cancelled") return;
-    clearInterval(recordTimerRef.current);
-    setIsRecording(false);
-  }
-
-  function toggleRecording() {
-    if (isRecording || isPreparingMic) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  }
-
-  async function handleUploadClip(e) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (file) await addClipFromBlob(file, "uploaded", file.name);
-  }
-
-  const timeline = new Timeline(segments);
-  const clipSegments = timeline.clips;
-  const clipCount = clipSegments.length;
-  const totalClipSeconds = clipSegments.reduce((sum, s) => sum + (s.duration || 0), 0);
-
-  // 실제로 업로드된(audioUrl이 있는) 트랙만 믹싱됩니다 — 운영 채널은 관리자 라이브러리,
-  // 다른 채널은 내 라이브러리의 곡입니다(공식 라이브러리는 아직 파일 없는 샘플).
-  const selectedBackgroundTrack = personalTracks.find(
-    (t) => t.id === selectedTrack && t.audioUrl
-  );
-
-  // 선택된 배경음악을 한 번만 디코딩해서 캐시해둡니다 — 타임라인 두 번째 트랙 표시와
-  // 미리듣기/저장 믹싱이 전부 이 캐시를 같이 씁니다(트랙을 바꿀 때만 다시 불러옴).
-  const [bgTrackBuffer, setBgTrackBuffer] = useState(null);
-  const [bgTrackUrl, setBgTrackUrl] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadBackgroundTrack() {
-      if (!selectedBackgroundTrack) {
-        setBgTrackBuffer(null);
-        setBgTrackUrl("");
-        return;
-      }
-      if (selectedBackgroundTrack.audioUrl === bgTrackUrl) return;
-      try {
-        const buffer = await AudioEngine.decodeUrl(selectedBackgroundTrack.audioUrl);
-        if (cancelled) return;
-        setBgTrackBuffer(buffer);
-        setBgTrackUrl(selectedBackgroundTrack.audioUrl);
-        setBgMixError("");
-      } catch (e) {
-        if (!cancelled) setBgMixError("배경음악을 불러오지 못했어요.");
-      }
-    }
-    loadBackgroundTrack();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBackgroundTrack?.audioUrl]);
-
-  // 목소리 편집 결과 + (있다면) 실제 배경음악을 선택한 볼륨/인트로 길이로 합친 최종 버퍼.
-  // 미리듣기와 저장이 항상 같은 결과를 내도록 이 함수 하나를 공유해서 씁니다.
-  async function buildFinalMixedBuffer() {
-    const voiceBuffer = timeline.toBuffer({ skipGaps: true });
-    if (!voiceBuffer) return null;
-    if (!selectedBackgroundTrack) return voiceBuffer;
-    try {
-      const bgBuffer =
-        bgTrackBuffer && bgTrackUrl === selectedBackgroundTrack.audioUrl
-          ? bgTrackBuffer
-          : await AudioEngine.decodeUrl(selectedBackgroundTrack.audioUrl);
-      setBgMixError("");
-      return new BackgroundMixer({ volume: musicVolume, voiceOffsetSeconds }).mix(voiceBuffer, bgBuffer);
-    } catch (e) {
-      setBgMixError("배경음악을 불러오지 못해 이번엔 목소리만 재생/저장했어요.");
-      return voiceBuffer;
-    }
-  }
+  const clipCount = workbench.clips.length;
 
   function resetForm() {
-    setSegments([]);
-    history().clear();
-    setCanUndo(false);
-    setVoiceOffsetSeconds(BackgroundMixer.DEFAULT_VOICE_OFFSET_SECONDS);
+    workbench.reset();
     setTitle("");
     setTagsInput("");
     setDescription("");
     setScriptFile(null);
     setCoverChoice(ContentCoverChoice.none());
+    setPublish(PublishSchedule.now());
+  }
+
+  /** 서버에 못 올렸거나 서버가 없을 때 이 브라우저에만 남겨 둡니다. */
+  function keepLocally(render, coverResult, resolvedTitle) {
+    addAudio({
+      coverImageUrl: coverResult.displayUrl,
+      title: resolvedTitle,
+      hasScript: Boolean(scriptFile),
+      scriptFileName: scriptFile?.name || "",
+      duration: TimeFormat.duration(render.durationSeconds),
+      previewUrl: URL.createObjectURL(render.mixBlob()),
+    });
   }
 
   async function handleSave() {
     if (clipCount === 0) return;
+    const publishProblem = publish.problem();
+    if (publishProblem) {
+      setSaveError(publishProblem);
+      return;
+    }
     setIsSaving(true);
     setSaveError("");
     try {
-      // Any remaining gaps are treated as removed for the final export —
-      // the same effect as pressing "자동으로 붙이기" before saving. Uses the
-      // same mixer as the preview button, so what you hear is what gets saved.
-      const finalBuffer = await buildFinalMixedBuffer();
-      if (!finalBuffer) {
-        setIsSaving(false);
-        return;
-      }
-      const wavBlob = WavEncoder.encode(finalBuffer);
+      // 남은 빈 공간은 빼고("자동으로 붙이기"와 같은 효과), 미리듣기와 같은 믹서로 만듭니다.
+      const render = await workbench.render();
+      if (!render) return;
       const resolvedTitle = title.trim() || "제목 없는 나눔";
       // 새 배경이미지는 여기서 라이브러리에 보관(원본 + 화면용)하고, 콘텐츠에 넣을 값을 받습니다.
       const coverResult = await coverChoice.commit(repos.library, { name: resolvedTitle });
@@ -297,15 +106,25 @@ export default function RecordPage() {
           ? " 배경이미지는 DB 업데이트(마이그레이션 0006·0011·0012) 전이라 이 탭에서만 보여요."
           : "";
 
-      if (isSupabaseConfigured) {
+      if (!isSupabaseConfigured) {
+        keepLocally(render, coverResult, resolvedTitle);
+      } else {
         const metadata = new AudioMetadata({
           title: resolvedTitle,
           tags: AudioMetadata.parseTags(tagsInput),
           description: description.trim(),
-          durationSeconds: finalBuffer.duration,
-          source: clipSegments.some((s) => s.source === "recorded") ? "recorded" : "uploaded",
+          durationSeconds: render.durationSeconds,
+          source: workbench.hasRecordedClip ? "recorded" : "uploaded",
         });
-        const result = await repos.audios.upload({ wavBlob, scriptFile, metadata, cover: coverResult.cover });
+        const result = await repos.audios.upload({
+          wavBlob: render.mixBlob(),
+          voiceBlob: render.voiceBlob(),
+          editSettings: render.settings,
+          scriptFile,
+          metadata,
+          cover: coverResult.cover,
+          publish,
+        });
         if (result.ok) {
           addAudioFromRow(result.row);
           // 서버에 배경이미지를 저장하지 못했으면(마이그레이션 전) 이 탭에서만이라도 보여줍니다.
@@ -316,29 +135,17 @@ export default function RecordPage() {
         } else {
           // 서버 저장에 실패해도 방금 만든 결과물을 잃지 않도록, 이 브라우저에만이라도 남겨둡니다.
           setSaveError(`서버 저장에 실패해서 이 브라우저에만 임시로 저장했어요. (${result.reason})`);
-          addAudio({
-            coverImageUrl: coverResult.displayUrl,
-            title: resolvedTitle,
-            hasScript: Boolean(scriptFile),
-            scriptFileName: scriptFile?.name || "",
-            duration: TimeFormat.duration(finalBuffer.duration),
-            previewUrl: URL.createObjectURL(wavBlob),
-          });
+          keepLocally(render, coverResult, resolvedTitle);
         }
-      } else {
-        addAudio({
-          coverImageUrl: coverResult.displayUrl,
-          title: resolvedTitle,
-          hasScript: Boolean(scriptFile),
-          scriptFileName: scriptFile?.name || "",
-          duration: TimeFormat.duration(finalBuffer.duration),
-          previewUrl: URL.createObjectURL(wavBlob),
-        });
       }
 
-      setSavedMessage(true);
+      setSavedMessage(
+        publish.isScheduled && isSupabaseConfigured
+          ? `예약했어요. ${publish.label}에 공개되고, 알림을 켠 구독자에게 알림이 가요. (콘텐츠 관리에서 바꿀 수 있어요)`
+          : "저장되었습니다. 홈 화면에서 바로 확인할 수 있어요."
+      );
       resetForm();
-      setTimeout(() => setSavedMessage(false), 4000);
+      setTimeout(() => setSavedMessage(""), 6000);
     } finally {
       setIsSaving(false);
     }
@@ -371,173 +178,16 @@ export default function RecordPage() {
         <ManageContentPanel />
       ) : (
       <>
-      <section>
-        <h2 className="text-base font-semibold text-stone-900">녹음 / 믹싱</h2>
-        <p className="mt-1 text-sm text-stone-500">
-          직접 녹음하거나 파일을 업로드해서 짧은 나눔을 만들어보세요.
-        </p>
-        {!isSupabaseConfigured && (
-          <p className="mt-1 text-xs text-night-600">
-            서버(Supabase)가 아직 연결되지 않아 지금은 이 브라우저에만 임시로 저장됩니다.
-          </p>
-        )}
-
-        <div className="mt-4 flex gap-1 rounded-full bg-stone-100 p-1 text-sm">
-          <button
-            type="button"
-            onClick={() => setActiveTab("record")}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 transition ${
-              activeTab === "record" ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
-            }`}
-          >
-            <Mic size={14} /> 녹음하기
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("upload")}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 transition ${
-              activeTab === "upload" ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
-            }`}
-          >
-            <Upload size={14} /> 파일 업로드
-          </button>
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-stone-200 bg-white p-5">
-          {activeTab === "record" ? (
-            <>
-              <label className="block text-xs font-medium text-stone-500">
-                입력 장치
-              </label>
-              <select
-                value={selectedDeviceId}
-                onChange={(e) => setSelectedDeviceId(e.target.value)}
-                disabled={isRecording || isPreparingMic}
-                className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 disabled:opacity-60"
-              >
-                {inputDevices.length === 0 && <option value="">기본 마이크</option>}
-                {inputDevices.map((d, i) => (
-                  <option key={d.deviceId || i} value={d.deviceId}>
-                    {d.label || `마이크 ${i + 1}`}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-stone-400">
-                USB 마이크가 목록에 없다면 컴퓨터에 먼저 연결한 뒤 녹음을 한 번 시작해보세요. 브라우저가 마이크 접근 권한을 요청합니다.
-              </p>
-
-              {micError && (
-                <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
-                  <AlertCircle size={14} /> {micError}
-                </div>
-              )}
-
-              <div className="mt-5 flex flex-col items-center gap-3 rounded-xl bg-stone-50 py-8">
-                <button
-                  type="button"
-                  onClick={toggleRecording}
-                  className={`flex h-16 w-16 items-center justify-center rounded-full text-white shadow-sm transition ${
-                    isRecording
-                      ? "bg-red-600 animate-pulse"
-                      : isPreparingMic
-                      ? "bg-stone-400"
-                      : "bg-night-700 hover:bg-night-800"
-                  }`}
-                  aria-label={isRecording ? "녹음 중지" : isPreparingMic ? "마이크 준비 취소" : "녹음 시작"}
-                >
-                  {isRecording ? "■" : isPreparingMic ? "…" : "●"}
-                </button>
-                <p className="text-sm text-stone-600">
-                  {isRecording
-                    ? `녹음 중… (${TimeFormat.duration(recordSeconds)})`
-                    : isPreparingMic
-                    ? "마이크 준비 중… (입력 레벨이 안정되는 중이에요)"
-                    : "버튼을 눌러 녹음을 시작하세요"}
-                </p>
-              </div>
-            </>
-          ) : (
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 py-10 text-sm text-stone-500 hover:bg-stone-50">
-              <Upload size={20} />
-              오디오 파일을 선택하세요 (.mp3, .wav, .m4a)
-              <input type="file" accept="audio/*" className="hidden" onChange={handleUploadClip} />
-            </label>
-          )}
-          {micError && activeTab === "upload" && (
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
-              <AlertCircle size={14} /> {micError}
-            </div>
-          )}
-        </div>
-
-        {/* 녹음/업로드 바로 아래에 파형 편집 영역을 이어 붙여서, 별도 섹션으로
-            떨어져 있던 예전 레이아웃보다 공간을 덜 차지하도록 했습니다. */}
-        <div className="mt-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-stone-900">
-            오디오 편집 <span className="text-xs font-normal text-stone-400">(마그네틱 타임라인)</span>
-          </h2>
-          <button
-            type="button"
-            onClick={undo}
-            disabled={!canUndo}
-            className="flex items-center gap-1.5 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
-            title="이전 상태로 계속 되돌리기 (Ctrl+Z / Cmd+Z)"
-          >
-            <Undo2 size={13} /> 실행 취소
-          </button>
-        </div>
-        <div className="mt-3">
-          <ClipTimeline
-            segments={segments}
-            onChange={updateSegments}
-            backgroundBuffer={bgTrackBuffer}
-            backgroundName={selectedBackgroundTrack?.name}
-            backgroundVolume={musicVolume}
-            onBackgroundVolumeChange={setMusicVolume}
-            voiceOffsetSeconds={voiceOffsetSeconds}
-            onVoiceOffsetChange={setVoiceOffsetSeconds}
-          />
-        </div>
-        {clipCount > 0 && (
-          <p className="mt-2 text-xs text-stone-400">
-            클립 {clipCount}개 · 총 {TimeFormat.duration(totalClipSeconds)}
-          </p>
-        )}
-      </section>
-
-      <section>
-        <h2 className="text-base font-semibold text-stone-900">
-          배경음악 선택 &amp; 믹싱
-        </h2>
-        <div className="mt-3">
-          <BackgroundMusicPicker
-            selectedTrackId={selectedTrack}
-            onSelect={setSelectedTrack}
-            volume={Math.min(1, musicVolume)}
-          />
-        </div>
-
-        <div className="mt-4 rounded-xl border border-stone-200 bg-white p-4">
-          <p className="text-xs text-stone-500">
-            배경음악 볼륨은 위 편집 타임라인의 배경음악 트랙 안에 있는 세로선을 드래그해서
-            조절해요(위로 올리면 커지고, 아래로 내리면 작아져요).
-          </p>
-          {selectedBackgroundTrack ? (
-            <p className="mt-2 text-xs text-emerald-600">
-              &quot;{selectedBackgroundTrack.name}&quot;이(가) 먼저 나오고, {voiceOffsetSeconds.toFixed(1)}초 후
-              목소리가 이어서 시작돼요. 목소리가 나오기 {BackgroundMixer.DUCK_LEAD_SECONDS}초 전부터 배경음악이
-              자동으로 작아지고(더킹, 설정 볼륨의 {Math.round(BackgroundMixer.DUCK_LEVEL * 100)}% 수준), 목소리가 나오는 동안 계속 낮게 유지돼요.
-              메시지가 끝나면 배경음악만 약 {BackgroundMixer.FADE_OUT_SECONDS}초 더 이어지며 서서히 페이드아웃돼요.
-              (편집 타임라인의 하늘색 인트로 구간을 드래그하면 길이를 바꿀 수 있어요.)
+      <AudioWorkbench
+        workbench={workbench}
+        intro={
+          !isSupabaseConfigured && (
+            <p className="mt-1 text-xs text-night-600">
+              서버(Supabase)가 아직 연결되지 않아 지금은 이 브라우저에만 임시로 저장됩니다.
             </p>
-          ) : (
-            <p className="mt-2 text-xs text-stone-400">
-              배경음악을 고르지 않았어요. 위 라이브러리에서 곡을 선택하면 목소리와 함께 믹싱돼요.
-            </p>
-          )}
-          {bgMixError && <p className="mt-1 text-xs text-red-600">{bgMixError}</p>}
-        </div>
-      </section>
+          )
+        }
+      />
 
       <section>
         <h2 className="text-base font-semibold text-stone-900">배경이미지</h2>
@@ -592,19 +242,25 @@ export default function RecordPage() {
 
       <section>
         <h2 className="text-base font-semibold text-stone-900">대본 첨부</h2>
-        <div className="mt-3 rounded-xl border border-dashed border-stone-300 bg-white p-4 text-center">
-          <label className="block cursor-pointer text-sm text-stone-500">
-            {scriptFile ? (
-              <span className="text-night-700">{scriptFile.name}</span>
-            ) : (
-              <>녹음에 사용한 대본 파일을 선택하세요 (.txt, .docx, .pdf)</>
-            )}
-            <input
-              type="file"
-              className="hidden"
-              onChange={(e) => setScriptFile(e.target.files?.[0] ?? null)}
-            />
-          </label>
+        <FileDropZone
+          kind={FileKind.SCRIPT}
+          onFiles={([file]) => setScriptFile(file)}
+          onReject={() => setSaveError("대본은 .txt · .docx · .pdf · .hwp 파일만 첨부할 수 있어요.")}
+          className="mt-3 flex flex-col items-center gap-1 rounded-xl border-2 border-dashed border-stone-300 bg-white p-4 text-center text-sm text-stone-500 transition hover:bg-stone-50"
+        >
+          <FileText size={18} />
+          {scriptFile ? (
+            <span className="text-night-700">{scriptFile.name}</span>
+          ) : (
+            <>대본 파일을 끌어다 놓거나 눌러서 고르세요 (.txt, .docx, .pdf)</>
+          )}
+        </FileDropZone>
+      </section>
+
+      <section>
+        <h2 className="text-base font-semibold text-stone-900">공개 시점</h2>
+        <div className="mt-3 rounded-xl border border-stone-200 bg-white p-4">
+          <PublishTimePicker value={publish} onChange={setPublish} disabled={isSaving} />
         </div>
       </section>
 
@@ -616,7 +272,7 @@ export default function RecordPage() {
 
       {savedMessage && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          <CheckCircle2 size={16} /> 저장되었습니다. 홈 화면에서 바로 확인할 수 있어요.
+          <CheckCircle2 size={16} /> {savedMessage}
         </div>
       )}
 
@@ -627,7 +283,7 @@ export default function RecordPage() {
           disabled={clipCount === 0 || isSaving}
           className="rounded-full bg-night-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-night-800 disabled:cursor-not-allowed disabled:bg-stone-300"
         >
-          {isSaving ? "믹싱 중…" : "업로드"}
+          {isSaving ? "믹싱 중…" : publish.isScheduled ? "예약 업로드" : "업로드"}
         </button>
       </div>
       </>

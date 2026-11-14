@@ -14,7 +14,7 @@ import { ChannelContentQuery } from "@/lib/channelProfile";
 import { useAppStore } from "@/lib/store";
 
 export default function ChannelHomePage() {
-  const { audios, artwork } = useAppStore();
+  const { liveAudios: audios, artwork } = useAppStore();
   const { channel } = useChannel();
   const router = useRouter();
   const legacySelectedId = useSearchParams().get("c");
