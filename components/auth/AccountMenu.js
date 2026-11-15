@@ -53,8 +53,9 @@ function LineLabel({ icon: Icon, children }) {
 }
 
 /** leading: 로그인한 회원에게만 계정 버튼 앞에 보여 줄 링크들 [{ href, label, icon }] — 예: 메인 화면의 마이 채널
- *  membership: 아직 구독자가 아닌 사람에게 "멤버십" 버튼을 함께 보여줄지(메인 화면) */
-export default function AccountMenu({ variant = "nav", leading = [], membership = false }) {
+ *  membership: 아직 구독자가 아닌 사람에게 "멤버십" 버튼을 함께 보여줄지(메인 화면)
+ *  bell: 알림 종을 함께 보여줄지(메인 화면 이미지 위에서는 뺌) */
+export default function AccountMenu({ variant = "nav", leading = [], membership = false, bell = true }) {
   const viewer = useViewer();
   const pathname = usePathname();
   const style = STYLES[variant];
@@ -92,7 +93,7 @@ export default function AccountMenu({ variant = "nav", leading = [], membership 
     <div className={style.wrap}>
       {leadingLinks}
       {membershipLink}
-      <NotificationBell className={style.outline} iconOnly={iconOnly} withLabel={withIcons} />
+      {bell && <NotificationBell className={style.outline} iconOnly={iconOnly} withLabel={withIcons} />}
       <Link href={MyPageMenu.BASE_PATH} className={style.solid} aria-label={MyPageMenu.TITLE} title={`${name} · ${MemberTier.label(viewer.tier)}`}>
         {label(UserRound, MyPageMenu.TITLE)}
       </Link>

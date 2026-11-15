@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Home, Mic } from "lucide-react";
+import { DoorOpen, Home, Mic, UserRound } from "lucide-react";
 import AccountMenu from "@/components/auth/AccountMenu";
 import { useChannel } from "@/components/ChannelProvider";
 import { titleEn, titleKo } from "@/components/common/titleFonts";
+import { MyPageMenu } from "@/lib/myPage";
 import { useAppStore } from "@/lib/store";
 
 // 채널 안의 메뉴 — 실제 주소는 채널마다 /{채널주소}/… 로 붙습니다. 스튜디오 메뉴는
@@ -27,6 +28,10 @@ export default function NavBar() {
   const isImmersive = useIsImmersiveContent(pathname);
   if (isImmersive) {
     return <ImmersiveNav channel={channel} />;
+  }
+  // 채널 메인·스튜디오는 위 메뉴줄 없이, 메뉴는 아래 아이콘 줄로(메인은 대표이미지가 맨 위를 꽉 채움).
+  if (channel.isHomePath(pathname) || channel.isStudioPath(pathname)) {
+    return <ChannelHomeNav channel={channel} pathname={pathname} />;
   }
 
   return (
@@ -106,7 +111,7 @@ function useIsImmersiveContent(pathname) {
 function ImmersiveNav({ channel }) {
   return (
     <>
-      <header className="sticky top-0 z-10">
+      <header data-idle-hide className="sticky top-0 z-10">
         {/* 채널로 가는 "은" 버튼은 아래 홈 버튼과 겹쳐서 두지 않습니다 — 위에는 계정 버튼만. */}
         <div className="mx-auto flex max-w-3xl items-center justify-end px-4 py-3">
           <AccountMenu variant="chip" />
@@ -115,12 +120,44 @@ function ImmersiveNav({ channel }) {
 
       {/* 아래 가운데에는 채널로 돌아가는 버튼 하나만 둡니다(스튜디오 마이크 버튼은 콘텐츠 화면에서 뺌).
           콘텐츠 화면에는 위쪽 채널 버튼이 없어서, 넓은 화면(웹)에서도 보여 줍니다. */}
-      <nav data-immersive-nav className="fixed inset-x-0 bottom-0 z-10">
+      <nav data-bottom-nav data-idle-hide className="fixed inset-x-0 bottom-0 z-10">
         <div className="mx-auto flex max-w-3xl items-center justify-center px-4 pb-4">
           <ChannelHomeButton channel={channel} />
         </div>
       </nav>
     </>
+  );
+}
+
+/** 채널 메인 화면 아래의 아이콘 줄 — 홈 · 스튜디오 · 마이 페이지 · 나가기(플랫폼 메인으로). 넓은 화면에서도 보입니다. */
+function ChannelHomeNav({ channel, pathname }) {
+  const items = [
+    { href: channel.path(), label: "홈", icon: Home },
+    { href: channel.studioPath(), label: "스튜디오", icon: Mic },
+    { href: MyPageMenu.BASE_PATH, label: "마이페이지", icon: UserRound },
+    { href: "/", label: "나가기", icon: DoorOpen },
+  ];
+  return (
+    <nav data-bottom-nav className="fixed inset-x-0 bottom-0 z-10 border-t border-stone-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-3xl items-stretch justify-around px-2 py-1.5">
+        {items.map(({ href, label, icon: Icon }) => {
+          const active = href === "/" ? false : href === channel.studioPath() ? channel.isStudioPath(pathname) : pathname === href;
+          return (
+            <Link
+              key={label}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={`flex flex-1 flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[11px] font-medium transition ${
+                active ? "text-night-700" : "text-stone-500 hover:text-stone-700"
+              }`}
+            >
+              <Icon size={20} strokeWidth={active ? 2.4 : 2} />
+              {label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 

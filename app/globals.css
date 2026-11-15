@@ -142,3 +142,15 @@ body {
     filter: var(--lamp-soft-glow);
   }
 }
+
+/* 콘텐츠 화면 감상 모드(lib/playback.js IdleScreen) — 한동안 안 만지면 글자·버튼이 사라지고 이미지와 진행바만 */
+[data-idle-hide] {
+  transition: opacity 600ms ease;
+}
+html[data-idle] [data-idle-hide] {
+  opacity: 0;
+  pointer-events: none;
+}
+html[data-idle] body {
+  cursor: none;
+}

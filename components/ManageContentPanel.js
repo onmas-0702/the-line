@@ -14,6 +14,8 @@ import { useAppStore } from "@/lib/store";
 import { PublishSchedule } from "@/lib/publishing";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 import PublishTimePicker from "@/components/studio/PublishTimePicker";
+import ScriptAttachField from "@/components/studio/ScriptAttachField";
+import { ScriptChoice } from "@/lib/contentScript";
 
 // 콘텐츠 수정 — 오디오를 제작 화면과 같은 작업대에서 다시 편집(자르기·트리밍·볼륨·배경음악 바꾸기,
 // 새 녹음·파일 추가), 배경이미지, 제목·태그·간단한 설명.
@@ -26,6 +28,7 @@ function EditForm({ item, onCancel, onSave }) {
   const [tagsInput, setTagsInput] = useState((item.tags || []).join(", "));
   const [description, setDescription] = useState(item.description || "");
   const [coverChoice, setCoverChoice] = useState(() => ContentCoverChoice.keep(item));
+  const [script, setScript] = useState(() => ScriptChoice.of(item));
   // 예약 중인 콘텐츠만 공개 시점을 바꿀 수 있어요(예약 시각 옮기기 / 지금 공개).
   const [pendingAt] = useState(() => PublishSchedule.pendingAt(item));
   const [publish, setPublish] = useState(() => (pendingAt ? PublishSchedule.at(pendingAt) : PublishSchedule.now()));
@@ -62,6 +65,29 @@ function EditForm({ item, onCancel, onSave }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id]);
+
+  /** 대본을 바꾸거나 뺐으면 저장하고, 화면에 반영할 값을 돌려줍니다. */
+  async function saveScript() {
+    if (!script.isChanged) return { ok: true, patch: {}, notice: "" };
+    const file = script.fileToSave;
+    const local = {
+      hasScript: Boolean(file),
+      scriptFileName: file?.name || "",
+      scriptUrl: file ? URL.createObjectURL(file) : "",
+    };
+    if (!isSupabaseConfigured) return { ok: true, patch: local, notice: "" };
+    const result = await repos.audios.replaceScript(item.id, file);
+    if (!result.ok) return result;
+    return {
+      ok: true,
+      patch: {
+        hasScript: Boolean(result.row.has_script),
+        scriptFileName: result.row.script_file_name || "",
+        scriptUrl: result.row.script_url || "",
+      },
+      notice: result.cleanupFailed ? "예전 대본 파일을 지우지 못해 저장 공간에 남아 있어요." : "",
+    };
+  }
 
   /** 오디오를 바꿨으면 다시 만들어 올리고, 화면에 반영할 값을 돌려줍니다. */
   async function saveAudio() {
@@ -132,10 +158,15 @@ function EditForm({ item, onCancel, onSave }) {
         }
         publishPatch = { publishAt: result.row.publish_at };
       }
+      const scriptSaved = await saveScript();
+      if (!scriptSaved.ok) {
+        setError(`대본을 저장하지 못했어요: ${scriptSaved.reason}`);
+        return;
+      }
       const cover = await saveCover();
       onSave(
-        { ...metadata, ...audio.patch, ...cover.patch, ...publishPatch },
-        [audio.notice, cover.notice].filter(Boolean).join(" ")
+        { ...metadata, ...audio.patch, ...scriptSaved.patch, ...cover.patch, ...publishPatch },
+        [audio.notice, scriptSaved.notice, cover.notice].filter(Boolean).join(" ")
       );
     } finally {
       setIsSaving(false);
@@ -181,6 +212,12 @@ function EditForm({ item, onCancel, onSave }) {
         <label className="block text-xs font-medium text-stone-500">배경이미지</label>
         <div className="mt-1 rounded-lg border border-stone-200 bg-white p-3">
           <ContentCoverPicker value={coverChoice} onChange={setCoverChoice} disabled={isSaving} />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-stone-500">대본</label>
+        <div className="mt-1">
+          <ScriptAttachField value={script} onChange={setScript} onReject={setError} disabled={isSaving} />
         </div>
       </div>
       <div>

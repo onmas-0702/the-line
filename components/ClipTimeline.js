@@ -25,6 +25,7 @@ import {
   Upload,
   AudioLines,
 } from "lucide-react";
+import LevelMeterView from "@/components/studio/LevelMeterView";
 import WaveformCanvas from "@/components/studio/WaveformCanvas";
 import { BackgroundMixer, ClipGain, TimeFormat, WaveformAnalyzer } from "@/lib/audio";
 import { FileDrop, FileKind } from "@/lib/fileDrop";
@@ -111,6 +112,11 @@ export default function ClipTimeline({
     if (!playerRef.current) playerRef.current = new PreviewPlayer();
     return playerRef.current;
   }
+  // 데시벨 미터가 매 프레임 읽을 측정기(재생기와 같은 것). 렌더마다 바뀌지 않게 한 번만 만듭니다.
+  const [getMeter] = useState(() => () => {
+    if (!playerRef.current) playerRef.current = new PreviewPlayer();
+    return playerRef.current.meter;
+  });
 
   // 편집은 항상 실제 segments로, 화면 배치는 가장자리를 끄는 중이면 그 길이를 반영한 것으로.
   const editTimeline = new Timeline(segments);
@@ -729,7 +735,9 @@ export default function ClipTimeline({
 
       {/* 진행바 + 목소리 줄 + 배경음악 줄 — 모두 같은 시간축. 진행바도 확대 영역 안에 있어서 확대하면
           함께 넓어지고 함께 스크롤되므로, 진행바의 위치와 파형 위 세로선이 언제나 같은 자리에 있습니다. */}
-      <div ref={zoomWrapperRef} className="relative mt-4 overflow-x-auto">
+      {/* 오른쪽에는 데시벨 미터(L/R) — 미리듣기 소리의 크기. */}
+      <div className="mt-4 flex items-stretch gap-2">
+      <div ref={zoomWrapperRef} className="relative min-w-0 flex-1 overflow-x-auto">
         <div className="relative" style={{ width: `${zoomLevel}%` }}>
           <div
             ref={railRef}
@@ -1124,6 +1132,8 @@ export default function ClipTimeline({
             </div>
           )}
         </div>
+      </div>
+        <LevelMeterView getMeter={getMeter} active={isPlaying} />
       </div>
     </div>
   );

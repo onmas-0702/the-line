@@ -156,7 +156,7 @@ export default function InstallBanner() {
   return (
     <>
       {isCardOpen && !isSheetOpen && (
-        <div className="fixed inset-x-3 bottom-24 z-30 sm:hidden" role="dialog" aria-label="홈 화면에 추가 안내">
+        <div data-idle-hide className="fixed inset-x-3 bottom-24 z-30 sm:hidden" role="dialog" aria-label="홈 화면에 추가 안내">
           <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white p-3 shadow-lg">
             <AppBadge />
             <div className="min-w-0 flex-1">

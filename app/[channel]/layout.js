@@ -30,12 +30,12 @@ export default async function ChannelLayout({ children, params }) {
   return (
     <ChannelProvider channel={channel.toJSON()}>
       <AppStoreProvider key={channel.slug}>
-        {/* 콘텐츠 화면은 넓은 화면에서도 아래 가운데에 홈 버튼(data-immersive-nav)이 떠 있어서,
+        {/* 콘텐츠 화면·채널 메인은 넓은 화면에서도 아래 가운데에 메뉴(data-bottom-nav)가 떠 있어서,
             그때만 맨 아래 줄 밑에 자리를 비워 겹치지 않게 합니다. */}
         <div className="group/channel flex flex-1 flex-col">
           <NavBar />
           <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-24 sm:pb-6">{children}</main>
-          <footer className="hidden border-t border-stone-200 py-4 text-center text-xs text-stone-400 sm:block sm:group-has-[[data-immersive-nav]]/channel:pb-20">
+          <footer className="hidden border-t border-stone-200 py-4 text-center text-xs text-stone-400 sm:block sm:group-has-[[data-bottom-nav]]/channel:pb-20">
             {channel.name} · {PLATFORM_NAME} · 와이어프레임 미리보기
           </footer>
         </div>

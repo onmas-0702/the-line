@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Check, Clapperboard, Palette, Pencil, X } from "lucide-react";
 import { ImageEditOverlay } from "@/components/channel/ChannelImageEditor";
 import { useChannel } from "@/components/ChannelProvider";
+import NotificationBell from "@/components/notifications/NotificationBell";
 import { useViewer } from "@/components/ViewerProvider";
 import { FeatureFlags } from "@/lib/featureFlags";
 import { MembershipOffer } from "@/lib/subscription";
@@ -75,9 +76,9 @@ export default function ChannelHeader({ contentCount }) {
 
   return (
     <section>
-      {/* 대표이미지(배너) — 가로 3:1 */}
+      {/* 대표이미지(배너) — 가로 3:1. 위 메뉴줄이 없어서 화면 맨 위·좌우 끝까지 꽉 채웁니다(바깥 여백을 음수로 상쇄). */}
       <div
-        className="relative aspect-[3/1] w-full overflow-hidden rounded-2xl bg-gradient-to-br from-night-200 via-night-100 to-stone-200 bg-cover bg-center"
+        className="relative -mx-4 -mt-6 aspect-[3/1] overflow-hidden bg-gradient-to-br from-night-200 via-night-100 to-stone-200 bg-cover bg-center"
         style={artwork.bannerUrl ? { backgroundImage: `url(${artwork.bannerUrl})` } : undefined}
       >
         {canDesign && <ImageEditOverlay slot={ChannelImageSlot.BANNER} className="bottom-2 right-2" />}
@@ -98,7 +99,13 @@ export default function ChannelHeader({ contentCount }) {
         </div>
 
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold leading-tight text-stone-900 sm:text-2xl">{channel.name}</h1>
+          <div className="flex items-center gap-1">
+            <h1 className="text-xl font-bold leading-tight text-stone-900 sm:text-2xl">{channel.name}</h1>
+            <NotificationBell
+              iconOnly
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-stone-500 transition hover:bg-stone-100 hover:text-stone-700"
+            />
+          </div>
           <p className="mt-1 text-xs text-stone-500">
             <span className="text-stone-700">@{channel.slug}</span>
             {FeatureFlags.CHANNEL_FOLLOW && ` · 팔로워 ${subscriberCount.toLocaleString()}명`} · 콘텐츠 {contentCount}개

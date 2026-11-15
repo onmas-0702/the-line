@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, AlertCircle, FileText } from "lucide-react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 import CommunityPanel from "@/components/studio/CommunityPanel";
 import GalleryStudioPanel from "@/components/studio/GalleryStudioPanel";
 import StaffPanel from "@/components/studio/StaffPanel";
@@ -12,11 +12,11 @@ import PublishTimePicker from "@/components/studio/PublishTimePicker";
 import { SaveDraftBar, SavedDraftsList } from "@/components/studio/DraftControls";
 import { useAudioDrafts } from "@/components/studio/useAudioDrafts";
 import { useAudioWorkbench } from "@/components/studio/useAudioWorkbench";
-import FileDropZone from "@/components/common/FileDropZone";
+import ScriptAttachField from "@/components/studio/ScriptAttachField";
 import { useViewer } from "@/components/ViewerProvider";
 import { AccessPolicy } from "@/lib/access";
 import { FeatureFlags } from "@/lib/featureFlags";
-import { FileKind } from "@/lib/fileDrop";
+import { ScriptChoice } from "@/lib/contentScript";
 import { StudioTab } from "@/lib/staff";
 import ContentCoverPicker from "@/components/ContentCoverPicker";
 import DesignSkinPanel from "@/components/DesignSkinPanel";
@@ -53,7 +53,8 @@ export default function RecordPage() {
   const [title, setTitle] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [description, setDescription] = useState("");
-  const [scriptFile, setScriptFile] = useState(null);
+  const [script, setScript] = useState(() => ScriptChoice.of());
+  const scriptFile = script.fileToSave;
   // 콘텐츠 배경이미지 — 고르지 않으면 채널 기본 배경 이미지를 씁니다(로고는 쓰지 않음).
   const [coverChoice, setCoverChoice] = useState(() => ContentCoverChoice.none());
   // 공개 시점 — 바로 공개 / 예약 공개(그 시각에 공개 + 구독자 알림)
@@ -83,7 +84,7 @@ export default function RecordPage() {
     setTitle("");
     setTagsInput("");
     setDescription("");
-    setScriptFile(null);
+    setScript(ScriptChoice.of());
     setCoverChoice(ContentCoverChoice.none());
     setPublish(PublishSchedule.now());
   }
@@ -261,19 +262,9 @@ export default function RecordPage() {
 
       <section>
         <h2 className="text-base font-semibold text-stone-900">대본 첨부</h2>
-        <FileDropZone
-          kind={FileKind.SCRIPT}
-          onFiles={([file]) => setScriptFile(file)}
-          onReject={() => setSaveError("대본은 .txt · .docx · .pdf · .hwp 파일만 첨부할 수 있어요.")}
-          className="mt-3 flex flex-col items-center gap-1 rounded-xl border-2 border-dashed border-stone-300 bg-white p-4 text-center text-sm text-stone-500 transition hover:bg-stone-50"
-        >
-          <FileText size={18} />
-          {scriptFile ? (
-            <span className="text-night-700">{scriptFile.name}</span>
-          ) : (
-            <>대본 파일을 끌어다 놓거나 눌러서 고르세요 (.txt, .docx, .pdf)</>
-          )}
-        </FileDropZone>
+        <div className="mt-3">
+          <ScriptAttachField value={script} onChange={setScript} onReject={setSaveError} disabled={isSaving} />
+        </div>
       </section>
 
       <section>

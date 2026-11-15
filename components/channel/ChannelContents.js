@@ -5,9 +5,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Headphones, Play, Search, X } from "lucide-react";
+import { FileDown, Play, Search, X } from "lucide-react";
 import ContentThumbnail from "@/components/ContentThumbnail";
 import { ChannelContentQuery } from "@/lib/channelProfile";
+import { ScriptDownload } from "@/lib/contentScript";
 
 export function ContentToolbar({ query, onChange }) {
   const [isSearchOpen, setIsSearchOpen] = useState(Boolean(query.search));
@@ -22,7 +23,7 @@ export function ContentToolbar({ query, onChange }) {
   }
 
   return (
-    <div className="sticky top-[57px] z-[5] -mx-4 border-b border-stone-200 bg-stone-50/95 px-4 py-2.5 backdrop-blur">
+    <div className="sticky top-0 z-[5] -mx-4 border-b border-stone-200 bg-stone-50/95 px-4 py-2.5 backdrop-blur">
       {isSearchOpen ? (
         <div className="flex items-center gap-2">
           <div className="flex flex-1 items-center gap-2 rounded-full border border-stone-300 bg-white px-3 py-1.5">
@@ -77,8 +78,9 @@ export function ContentToolbar({ query, onChange }) {
   );
 }
 
-// 카드를 누르면 그 콘텐츠의 화면(전체 화면 배경 + 큰 재생 버튼)으로 이동합니다.
+// 카드: 썸네일 → 제목 → 날짜 → 대본 받기. 썸네일·제목을 누르면 그 콘텐츠의 화면(전체 화면 배경 + 큰 재생 버튼)으로.
 function ContentCard({ item, href, thumbnailUrl }) {
+  const scriptHref = ScriptDownload.url(item);
   return (
     <article>
       <Link href={href} className="group block" aria-label={`${item.title} 듣기`}>
@@ -91,17 +93,19 @@ function ContentCard({ item, href, thumbnailUrl }) {
         <h3 className="mt-1.5 line-clamp-2 text-xs font-semibold leading-snug text-stone-900 group-hover:text-night-800">
           {item.title}
         </h3>
-        <p className="mt-0.5 truncate text-[11px] text-night-700">
-          {item.pastorName}
-          {item.scriptureReference ? ` · ${item.scriptureReference}` : ""}
-        </p>
-        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-400">
-          <Headphones size={11} className="shrink-0" />
-          <span className="truncate">
-            {item.plays || 0}회 · {item.date}
-          </span>
-        </p>
+        <p className="mt-0.5 truncate text-[11px] text-stone-400">{item.date}</p>
       </Link>
+      {scriptHref && (
+        <a
+          href={scriptHref}
+          download={item.scriptFileName || true}
+          className="mt-1 inline-flex items-center gap-1 rounded-full py-0.5 text-[11px] text-night-700 hover:underline"
+          aria-label={`${item.title} 대본 받기`}
+          title={item.scriptFileName || "대본 받기"}
+        >
+          <FileDown size={13} strokeWidth={1.75} /> 대본
+        </a>
+      )}
     </article>
   );
 }

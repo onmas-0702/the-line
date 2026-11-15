@@ -6,15 +6,17 @@
 // 채널의 다른 콘텐츠가 담백한 목록으로 이어지고, 누르면 그 콘텐츠 화면으로 넘어갑니다.
 // 배경 이미지가 하나도 없으면 흰 배경 위의 기본 모습(호박색)으로 보여줍니다.
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Pause, Play } from "lucide-react";
 import { useChannel } from "@/components/ChannelProvider";
 import ContentEngagement from "@/components/content/ContentEngagement";
+import PlaybackProgress from "@/components/content/PlaybackProgress";
 import { useContentPlayer } from "@/components/content/useContentPlayer";
 import { TimeFormat } from "@/lib/audio";
 import { NextContent } from "@/lib/channelProfile";
+import { IdleScreen } from "@/lib/playback";
 import { useAppStore } from "@/lib/store";
 
 
@@ -31,6 +33,18 @@ export default function ContentPage() {
     return next ? [next] : [];
   }, [audios, contentId]);
 
+  const backgroundUrl = item ? artwork.thumbnailFor(item) : null;
+  const isImmersive = Boolean(backgroundUrl);
+  const { isPlaying, isLoaded, elapsed, duration, remaining } = player.stateOf(item);
+
+  // 배경이미지 위에서 재생 중이면, 한동안 화면을 안 만질 때 글자·버튼을 숨기고 이미지와 진행바만 남깁니다.
+  useEffect(() => {
+    if (!isImmersive || !isPlaying) return undefined;
+    const idle = new IdleScreen();
+    idle.start();
+    return () => idle.stop();
+  }, [isImmersive, isPlaying]);
+
   if (!item) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
@@ -44,14 +58,11 @@ export default function ContentPage() {
     );
   }
 
-  const backgroundUrl = artwork.thumbnailFor(item);
-  const isImmersive = Boolean(backgroundUrl);
-  const { isPlaying, remaining } = player.stateOf(item);
   const text = isImmersive ? "text-white drop-shadow" : "text-stone-900";
   const subText = isImmersive ? "text-white/80 drop-shadow" : "text-stone-400";
 
   return (
-    <div className="flex min-h-[75vh] flex-col">
+    <div className="flex min-h-[calc(75vh-3.5rem)] flex-col">
       {isImmersive && (
         <div aria-hidden className="fixed inset-0 -z-10 bg-stone-800">
           <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${backgroundUrl})` }} />
@@ -61,14 +72,15 @@ export default function ContentPage() {
       )}
 
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-10 text-center">
-        <h1 className={`max-w-xs text-xl font-semibold leading-snug ${text}`}>{item.title}</h1>
+        <h1 data-idle-hide className={`max-w-xs text-xl font-semibold leading-snug ${text}`}>{item.title}</h1>
         {(item.pastorName || item.scriptureReference) && (
-          <p className={`-mt-2 text-xs ${subText}`}>
+          <p data-idle-hide className={`-mt-2 text-xs ${subText}`}>
             {[item.pastorName, item.scriptureReference].filter(Boolean).join(" · ")}
           </p>
         )}
         <button
           type="button"
+          data-idle-hide
           onClick={() => player.toggle(item)}
           disabled={!item.previewUrl}
           title={item.previewUrl ? undefined : "샘플 데이터입니다 (재생 준비중)"}
@@ -81,15 +93,21 @@ export default function ContentPage() {
         >
           {isPlaying ? <Pause size={30} /> : <Play size={30} className="ml-1" />}
         </button>
-        <p className={`text-xs tabular-nums ${subText}`}>
+        {isLoaded && (
+          <PlaybackProgress elapsed={elapsed} duration={duration} onSeek={player.seek} isImmersive={isImmersive} />
+        )}
+        <p data-idle-hide className={`-mt-2 text-xs tabular-nums ${subText}`}>
           {remaining !== null ? TimeFormat.duration(remaining) : item.duration}
         </p>
       </div>
 
-      <ContentEngagement key={item.id} item={item} isImmersive={isImmersive} />
+      {/* 아래 가운데 채널 로고 버튼이 가리지 않도록 아이콘 줄 밑에 두 줄쯤 자리를 둡니다. */}
+      <div data-idle-hide className="pb-14">
+        <ContentEngagement key={item.id} item={item} isImmersive={isImmersive} />
+      </div>
 
       {others.length > 0 && (
-        <div className="space-y-0.5 px-2 pb-6">
+        <div data-idle-hide className="space-y-0.5 px-2 pb-6">
           {others.map((other) => (
             <Link
               key={other.id}

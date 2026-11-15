@@ -4,7 +4,7 @@
 // 악기별로 묶인 목록, 곡마다 미리듣기·[트랙에 올리기](편집 타임라인의 배경음악 트랙)·분류 변경·삭제.
 
 import { useMemo, useState } from "react";
-import { Check, ListPlus, Pause, Play, Tag, Trash2, Upload } from "lucide-react";
+import { Check, ChevronDown, ListPlus, Pause, Play, Tag, Trash2, Upload } from "lucide-react";
 import ClassificationPicker, { Chip } from "@/components/music/ClassificationPicker";
 import { MusicTaxonomy, TrackClassification } from "@/lib/musicTaxonomy";
 
@@ -212,6 +212,8 @@ export default function TrackLibrary({
 }) {
   const [categoryKey, setCategoryKey] = useState("");
   const [moodId, setMoodId] = useState("");
+  // "전체"는 펼침식 — 곡이 많아져도 자리를 덜 차지하게, 처음엔 접어 둡니다(트랙에 올린 곡만 보임).
+  const [isAllOpen, setIsAllOpen] = useState(false);
 
   const classified = useMemo(
     () => tracks.map((track) => ({ track, classification: TrackClassification.fromTrack(track) })),
@@ -220,6 +222,10 @@ export default function TrackLibrary({
   const hasUnclassified = classified.some((c) => !c.classification.isClassified);
   const selectedCategory = MusicTaxonomy.category(categoryKey);
   const visible = classified.filter((c) => c.classification.matches({ categoryKey, moodId }));
+  const isAllView = !categoryKey;
+  const isCollapsed = isAllView && !isAllOpen;
+  // 접혀 있어도 트랙에 올린 곡은 위에 한 줄로 남겨 둡니다.
+  const pinned = isCollapsed ? classified.find((c) => c.track.id === selectedTrackId) || null : null;
 
   // "전체"일 때는 악기 순서대로 묶어서 보여줍니다(미분류는 맨 뒤).
   const groups = useMemo(() => {
@@ -233,7 +239,24 @@ export default function TrackLibrary({
       .filter((g) => g.items.length > 0);
   }, [visible]);
 
+  function renderRow(track) {
+    return (
+      <TrackRow
+        key={track.id}
+        track={track}
+        selected={selectedTrackId === track.id}
+        onSelect={() => onSelect(selectedTrackId === track.id ? null : track.id)}
+        previewing={previewingId === track.id}
+        onPreview={() => onPreview(track)}
+        onDelete={onDelete ? () => onDelete(track) : null}
+        onReclassify={onReclassify ? (classification) => onReclassify(track, classification) : null}
+      />
+    );
+  }
+
   function pickCategory(key) {
+    // 이미 "전체"를 보고 있으면 다시 누를 때마다 펼치기/접기, 다른 분류에서 오면 펼쳐서 보여 줍니다.
+    if (!key) setIsAllOpen((open) => (categoryKey ? true : !open));
     setCategoryKey(key);
     setMoodId("");
   }
@@ -246,7 +269,22 @@ export default function TrackLibrary({
       {/* 악기 탭 + (고른 악기의) 분위기 */}
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <Chip active={!categoryKey} onClick={() => pickCategory("")}>
-          전체 {tracks.length}
+          <span className="inline-flex items-center gap-1.5" aria-label={`전체 ${tracks.length}곡 ${isAllView && isAllOpen ? "접기" : "펼치기"}`}>
+            전체
+            <span
+              className={`min-w-[1.25rem] rounded-full px-1.5 py-px text-center text-[10px] font-semibold tabular-nums ${
+                isAllView ? "bg-white/20 text-white" : "bg-stone-100 text-stone-500"
+              }`}
+            >
+              {tracks.length}
+            </span>
+            <ChevronDown
+              size={13}
+              strokeWidth={2.25}
+              aria-hidden
+              className={`-mr-0.5 transition-transform duration-300 ${isAllView && isAllOpen ? "rotate-180" : ""}`}
+            />
+          </span>
         </Chip>
         {MusicTaxonomy.CATEGORIES.map((c) => (
           <Chip key={c.id} active={categoryKey === c.id} onClick={() => pickCategory(c.id)}>
@@ -272,30 +310,56 @@ export default function TrackLibrary({
         </div>
       )}
 
-      <div className="space-y-3 rounded-xl border border-stone-200 bg-stone-50/60 p-2.5">
-        {tracks.length === 0 && <p className="py-4 text-center text-xs text-stone-400">아직 올린 배경음악이 없습니다.</p>}
-        {tracks.length > 0 && visible.length === 0 && (
-          <p className="py-4 text-center text-xs text-stone-400">이 분류에 해당하는 배경음악이 없습니다.</p>
+      <div className="overflow-hidden rounded-xl border border-stone-200 bg-stone-50/60">
+        {tracks.length === 0 && <p className="py-6 text-center text-xs text-stone-400">아직 올린 배경음악이 없습니다.</p>}
+
+        {pinned && (
+          <div className="p-2.5 pb-0">
+            <p className="mb-1.5 px-0.5 text-[11px] font-semibold text-sky-700">트랙에 올린 곡</p>
+            {renderRow(pinned.track)}
+          </div>
         )}
-        {groups.map((group) => (
-          <div key={group.key}>
-            {!categoryKey && <p className="mb-1.5 px-0.5 text-[11px] font-semibold text-stone-500">{group.label}</p>}
-            <div className="space-y-1.5">
-              {group.items.map(({ track }) => (
-                <TrackRow
-                  key={track.id}
-                  track={track}
-                  selected={selectedTrackId === track.id}
-                  onSelect={() => onSelect(selectedTrackId === track.id ? null : track.id)}
-                  previewing={previewingId === track.id}
-                  onPreview={() => onPreview(track)}
-                  onDelete={onDelete ? () => onDelete(track) : null}
-                  onReclassify={onReclassify ? (classification) => onReclassify(track, classification) : null}
-                />
+
+        {/* 목록 — "전체"에서는 부드럽게 펼쳐지고 접힙니다(높이를 0fr ↔ 1fr로). */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+            isCollapsed ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"
+          }`}
+          aria-hidden={isCollapsed || undefined}
+          inert={isCollapsed || undefined}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="space-y-3 p-2.5">
+              {tracks.length > 0 && visible.length === 0 && (
+                <p className="py-4 text-center text-xs text-stone-400">이 분류에 해당하는 배경음악이 없습니다.</p>
+              )}
+              {groups.map((group) => (
+                <div key={group.key}>
+                  {isAllView && <p className="mb-1.5 px-0.5 text-[11px] font-semibold text-stone-500">{group.label}</p>}
+                  <div className="space-y-1.5">{group.items.map(({ track }) => renderRow(track))}</div>
+                </div>
               ))}
             </div>
           </div>
-        ))}
+        </div>
+
+        {/* 펼치기·접기 막대 — "전체"에서만 */}
+        {isAllView && tracks.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setIsAllOpen((open) => !open)}
+            aria-expanded={isAllOpen}
+            className="group/fold flex w-full items-center justify-center gap-1.5 border-t border-stone-200/80 bg-white/70 py-2 text-[11px] font-medium text-stone-500 transition hover:text-night-700"
+          >
+            {isAllOpen ? "목록 접기" : `${tracks.length}곡 모두 보기`}
+            <ChevronDown
+              size={14}
+              strokeWidth={2}
+              aria-hidden
+              className={`transition-transform duration-300 group-hover/fold:translate-y-px ${isAllOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+        )}
       </div>
     </div>
   );
