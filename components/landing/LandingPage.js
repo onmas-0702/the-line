@@ -3,13 +3,14 @@
 // 더 라인 플랫폼의 대표 페이지(/) — 모바일 우선.
 //   1. 상단 중앙: 플랫폼 표기(로고 자리)
 //   2. 그 아래 오른쪽: 로그인 · 회원가입
-//   3. 중심부: 최신 / 많이 들은 / 자주 듣는 메신저 콘텐츠 (옆으로 넘겨보기, 개수 조절)
+//   3. 중심부: 최신 / 많이 들은 콘텐츠 (옆으로 넘겨보기, 개수 조절) + 배너(스튜디오 "배너" 탭에서 올림)
 //   4. 이미지 갤러리(구독자는 원본·모바일 배경이미지 다운로드, 마이 갤러리 담기)
 //   5. 하단: 제작사 정보 · 환불정책 · 연락처
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import GallerySection from "@/components/gallery/GallerySection";
+import BannerCarousel from "@/components/landing/BannerCarousel";
 import FeedRow from "@/components/landing/FeedRow";
 import LandingHeader from "@/components/landing/LandingHeader";
 import PlatformFooter from "@/components/landing/PlatformFooter";
@@ -148,7 +149,6 @@ export default function LandingPage() {
   }
 
   const sections = new FeedSections(audios);
-  const favorites = history ? sections.favoriteMessengers(history, count) : { items: [], personalized: false };
   const rowProps = { playingId, onTogglePlay: togglePlay };
 
   return (
@@ -175,17 +175,8 @@ export default function LandingPage() {
           emptyText="아직 청취 기록이 없습니다."
           {...rowProps}
         />
-        <FeedRow
-          title="자주 듣는 메신저"
-          subtitle={
-            favorites.personalized
-              ? "내가 자주 들은 메신저의 나눔이에요."
-              : "나눔을 들을수록 내가 자주 듣는 메신저의 나눔이 모여요. 지금은 인기 메신저 순이에요."
-          }
-          items={favorites.items}
-          emptyText="아직 보여드릴 메신저 콘텐츠가 없습니다."
-          {...rowProps}
-        />
+        {/* 배너 — 스튜디오 "배너" 탭에서 올린 것(없으면 영역이 보이지 않음) */}
+        <BannerCarousel />
 
         {/* 이미지 갤러리 — 구독자 이미지 다운로드 서비스(운영 채널 스튜디오 "갤러리" 탭에서 올림) */}
         <GallerySection />

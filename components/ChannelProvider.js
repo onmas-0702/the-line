@@ -10,6 +10,7 @@ import { Channel, ChannelRepository } from "@/lib/channel";
 import { ChannelCommunityRepository, NoticeRepository } from "@/lib/community";
 import { AudioMarkRepository, CommentRepository, JournalRepository } from "@/lib/engagement";
 import { GalleryRepository } from "@/lib/gallery";
+import { BannerRepository } from "@/lib/banners";
 import { AudioDraftRepository } from "@/lib/audioDraft";
 import { LibraryRepository } from "@/lib/library";
 import { SiteSettingsRepository } from "@/lib/siteSettings";
@@ -34,6 +35,7 @@ export default function ChannelProvider({ channel: channelData, children }) {
         notices: new NoticeRepository(scope),
         community: new ChannelCommunityRepository(scope),
         gallery: new GalleryRepository(scope),
+        banners: new BannerRepository(scope),
         drafts: new AudioDraftRepository(scope),
       },
     };

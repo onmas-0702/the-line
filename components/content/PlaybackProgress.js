@@ -45,7 +45,7 @@ export default function PlaybackProgress({ elapsed, duration, onSeek, isImmersiv
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onKeyDown={handleKeyDown}
-      className="relative h-6 w-full max-w-xs cursor-pointer touch-none outline-none"
+      className="relative h-6 w-28 cursor-pointer touch-none outline-none"
     >
       <div className={`absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full ${track}`} />
       <div className={`absolute left-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full ${fill}`} style={{ width: `${percent}%` }} />

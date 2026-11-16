@@ -41,6 +41,7 @@ export function useAudioDrafts({ repository, workbench, getMeta, applyMeta }) {
       tagsInput: meta.tagsInput,
       description: meta.description,
       publishAt: meta.publish.toColumn(),
+      isPrivate: meta.publish.isPrivate,
       settings: workbench.settings,
       segments: workbench.segments,
     });

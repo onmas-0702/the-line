@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, CalendarClock, Loader2, Pencil, Trash2, X } from "lucide-react";
+import { AlertCircle, CalendarClock, ChevronDown, Globe, Loader2, Lock, Pencil, Trash2, X } from "lucide-react";
 import ContentCoverPicker from "@/components/ContentCoverPicker";
 import ContentThumbnail from "@/components/ContentThumbnail";
 import { useChannel } from "@/components/ChannelProvider";
@@ -29,10 +29,10 @@ function EditForm({ item, onCancel, onSave }) {
   const [description, setDescription] = useState(item.description || "");
   const [coverChoice, setCoverChoice] = useState(() => ContentCoverChoice.keep(item));
   const [script, setScript] = useState(() => ScriptChoice.of(item));
-  // 예약 중인 콘텐츠만 공개 시점을 바꿀 수 있어요(예약 시각 옮기기 / 지금 공개).
-  const [pendingAt] = useState(() => PublishSchedule.pendingAt(item));
-  const [publish, setPublish] = useState(() => (pendingAt ? PublishSchedule.at(pendingAt) : PublishSchedule.now()));
-  const publishChanged = pendingAt !== null && publish.toColumn() !== PublishSchedule.at(pendingAt).toColumn();
+  // 공개 상태 — 공개 · 비공개 · 예약 공개를 언제든 서로 바꿀 수 있어요.
+  const [initialPublish] = useState(() => PublishSchedule.forItem(item));
+  const [publish, setPublish] = useState(initialPublish);
+  const publishChanged = !publish.equals(initialPublish);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -151,12 +151,16 @@ function EditForm({ item, onCancel, onSave }) {
       }
       let publishPatch = {};
       if (publishChanged && isSupabaseConfigured) {
-        const result = await repos.audios.updatePublishAt(item.id, publish);
+        const result = await repos.audios.updateVisibility(item.id, publish, {
+          wasLive: initialPublish.state === PublishSchedule.State.PUBLIC,
+        });
         if (!result.ok) {
-          setError(`공개 시점을 바꾸지 못했어요: ${result.reason}`);
+          setError(`공개 상태를 바꾸지 못했어요: ${result.reason}`);
           return;
         }
-        publishPatch = { publishAt: result.row.publish_at };
+        publishPatch = VisibilityPatch.fromRow(result.row);
+      } else if (publishChanged) {
+        publishPatch = VisibilityPatch.local(publish, item);
       }
       const scriptSaved = await saveScript();
       if (!scriptSaved.ok) {
@@ -200,14 +204,18 @@ function EditForm({ item, onCancel, onSave }) {
           {workbench.isDirty && <span className="text-night-700"> · 오디오가 바뀌었어요(저장하면 반영돼요)</span>}
         </p>
       </div>
-      {pendingAt && (
-        <div>
-          <label className="block text-xs font-medium text-stone-500">공개 시점</label>
-          <div className="mt-1 rounded-lg border border-stone-200 bg-white p-3">
-            <PublishTimePicker value={publish} onChange={setPublish} disabled={isSaving} nowLabel="지금 공개" />
-          </div>
+      <div>
+        <label className="block text-xs font-medium text-stone-500">공개 상태</label>
+        <div className="mt-1">
+          <PublishTimePicker
+            value={publish}
+            onChange={setPublish}
+            disabled={isSaving}
+            nowLabel="공개"
+            nowHint={PUBLIC_HINT}
+          />
         </div>
-      )}
+      </div>
       <div>
         <label className="block text-xs font-medium text-stone-500">배경이미지</label>
         <div className="mt-1 rounded-lg border border-stone-200 bg-white p-3">
@@ -268,14 +276,104 @@ function EditForm({ item, onCancel, onSave }) {
   );
 }
 
-/** 예약 중이면 "예약 · 11월 20일 (목) 오후 9:00 공개" 표시. */
-function ScheduledBadge({ item }) {
-  const pendingAt = PublishSchedule.pendingAt(item);
-  if (!pendingAt) return null;
+const PUBLIC_HINT = "누구나 볼 수 있어요. 처음 공개될 때 알림을 켠 구독자에게 알림이 가요.";
+
+/** 공개 상태를 바꾼 뒤 화면(스토어)에 반영할 값. */
+class VisibilityPatch {
+  static fromRow(row) {
+    return { publishAt: row.publish_at || "", isPrivate: Boolean(row.is_private) };
+  }
+
+  /** Supabase 없이(로컬 미리보기) 쓸 때 — 서버와 같은 규칙으로 계산합니다. */
+  static local(schedule, item) {
+    const wasLive = PublishSchedule.stateOf(item) === PublishSchedule.State.PUBLIC;
+    let publishAt = item.publishAt;
+    if (schedule.isScheduled) publishAt = schedule.toColumn();
+    else if (!schedule.isPrivate && !wasLive) publishAt = new Date().toISOString();
+    return { publishAt, isPrivate: schedule.isPrivate };
+  }
+}
+
+/** 공개 상태 표시 — 공개(초록) · 비공개(회색 자물쇠) · 예약(호박색 + 공개 시각). 누르면 바로 바꿀 수 있어요. */
+const BADGE = {
+  [PublishSchedule.State.PUBLIC]: { icon: Globe, tone: "bg-emerald-50 text-emerald-700 ring-emerald-200/70" },
+  [PublishSchedule.State.PRIVATE]: { icon: Lock, tone: "bg-stone-100 text-stone-600 ring-stone-200" },
+  [PublishSchedule.State.SCHEDULED]: { icon: CalendarClock, tone: "bg-amber-50 text-amber-800 ring-amber-200/70" },
+};
+
+function VisibilityBadge({ item, isOpen, onToggle }) {
+  const schedule = PublishSchedule.forItem(item);
+  const { icon: Icon, tone } = BADGE[schedule.state];
+  const text =
+    schedule.state === PublishSchedule.State.SCHEDULED
+      ? `예약 공개 · ${schedule.label}`
+      : schedule.isPrivate
+        ? "비공개"
+        : "공개";
   return (
-    <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">
-      <CalendarClock size={12} /> 예약 · {PublishSchedule.label(pendingAt)} 공개
-    </p>
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={isOpen}
+      title="공개 상태 바꾸기"
+      className={`mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset transition ${tone}`}
+    >
+      <Icon size={12} className="shrink-0" aria-hidden />
+      <span className="truncate">{text}</span>
+      <ChevronDown size={12} className={`shrink-0 opacity-60 transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden />
+    </button>
+  );
+}
+
+/** 목록에서 바로 공개 상태만 바꾸는 작은 칸 — 오디오를 불러오지 않아 빠릅니다. */
+function VisibilityEditor({ item, onCancel, onSaved }) {
+  const { repos } = useChannel();
+  const [initial] = useState(() => PublishSchedule.forItem(item));
+  const [value, setValue] = useState(initial);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  const changed = !value.equals(initial);
+
+  async function handleApply() {
+    if (!changed) return onCancel();
+    if (value.problem()) return setError(value.problem());
+    setIsSaving(true);
+    setError("");
+    try {
+      if (!isSupabaseConfigured) return onSaved(VisibilityPatch.local(value, item), value);
+      const result = await repos.audios.updateVisibility(item.id, value, {
+        wasLive: initial.state === PublishSchedule.State.PUBLIC,
+      });
+      if (!result.ok) return setError(`공개 상태를 바꾸지 못했어요: ${result.reason}`);
+      onSaved(VisibilityPatch.fromRow(result.row), value);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-2.5 rounded-xl bg-stone-50 p-3">
+      <PublishTimePicker value={value} onChange={setValue} disabled={isSaving} nowLabel="공개" nowHint={PUBLIC_HINT} />
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isSaving}
+          className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100"
+        >
+          취소
+        </button>
+        <button
+          type="button"
+          onClick={handleApply}
+          disabled={isSaving || !changed}
+          className="rounded-full bg-night-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-night-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+        >
+          {isSaving ? "바꾸는 중…" : "적용"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -283,6 +381,7 @@ export default function ManageContentPanel() {
   const { audios, artwork, removeAudioLocal, updateAudioLocal } = useAppStore();
   const { repos } = useChannel();
   const [editingId, setEditingId] = useState(null);
+  const [visibilityId, setVisibilityId] = useState(null); // 공개 상태만 바꾸는 칸이 열린 콘텐츠
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -322,7 +421,7 @@ export default function ManageContentPanel() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-stone-400">전체 {audios.length}개</p>
+      <VisibilityCounts audios={audios} />
 
       {error && (
         <div className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -356,12 +455,22 @@ export default function ManageContentPanel() {
                 <p className="mt-1 text-xs text-stone-400">
                   {item.date} · {item.duration} · 재생 {item.plays}회
                 </p>
-                <ScheduledBadge item={item} />
+                <VisibilityBadge
+                  item={item}
+                  isOpen={visibilityId === item.id}
+                  onToggle={() => {
+                    setEditingId(null);
+                    setVisibilityId(visibilityId === item.id ? null : item.id);
+                  }}
+                />
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setEditingId(isEditing ? null : item.id)}
+                  onClick={() => {
+                    setVisibilityId(null);
+                    setEditingId(isEditing ? null : item.id);
+                  }}
                   className="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100"
                   aria-label={isEditing ? "편집 취소" : "편집"}
                   title={isEditing ? "편집 취소" : "편집"}
@@ -381,6 +490,18 @@ export default function ManageContentPanel() {
               </div>
             </div>
 
+            {visibilityId === item.id && !isEditing && (
+              <VisibilityEditor
+                item={item}
+                onCancel={() => setVisibilityId(null)}
+                onSaved={(patch, schedule) => {
+                  updateAudioLocal(item.id, patch);
+                  setNotice(`"${item.title}"을(를) ${schedule.isScheduled ? `${schedule.label}에 공개되도록 예약` : schedule.isPrivate ? "비공개로" : "공개로"} 바꿨어요.`);
+                  setVisibilityId(null);
+                }}
+              />
+            )}
+
             {isEditing && (
               <EditForm
                 item={item}
@@ -396,5 +517,16 @@ export default function ManageContentPanel() {
         );
       })}
     </div>
+  );
+}
+
+/** 목록 위 개수 — 전체 · 공개 · 비공개 · 예약. */
+function VisibilityCounts({ audios }) {
+  const counts = { public: 0, private: 0, scheduled: 0 };
+  for (const item of audios) counts[PublishSchedule.stateOf(item)] += 1;
+  return (
+    <p className="text-xs text-stone-400">
+      전체 {audios.length}개 · 공개 {counts.public} · 비공개 {counts.private} · 예약 {counts.scheduled}
+    </p>
   );
 }

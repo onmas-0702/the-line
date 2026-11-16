@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import CommunityPanel from "@/components/studio/CommunityPanel";
+import BannerStudioPanel from "@/components/studio/BannerStudioPanel";
 import GalleryStudioPanel from "@/components/studio/GalleryStudioPanel";
 import StaffPanel from "@/components/studio/StaffPanel";
 import StudioTabBar from "@/components/studio/StudioTabBar";
@@ -159,7 +160,9 @@ export default function RecordPage() {
       setSavedMessage(
         publish.isScheduled && isSupabaseConfigured
           ? `예약했어요. ${publish.label}에 공개되고, 알림을 켠 구독자에게 알림이 가요. (콘텐츠 관리에서 바꿀 수 있어요)`
-          : "저장되었습니다. 홈 화면에서 바로 확인할 수 있어요."
+          : publish.isPrivate
+            ? "비공개로 저장했어요. 운영자에게만 보이고, 콘텐츠 관리에서 언제든 공개할 수 있어요."
+            : "저장되었습니다. 홈 화면에서 바로 확인할 수 있어요."
       );
       resetForm();
       setTimeout(() => setSavedMessage(""), 6000);
@@ -187,6 +190,8 @@ export default function RecordPage() {
         <StaffPanel />
       ) : mainTab === "gallery" ? (
         <GalleryStudioPanel />
+      ) : mainTab === "banner" ? (
+        <BannerStudioPanel />
       ) : mainTab === "community" ? (
         <CommunityPanel />
       ) : mainTab === "design" ? (
@@ -214,7 +219,7 @@ export default function RecordPage() {
         <p className="mt-1 text-xs text-stone-400">
           이 콘텐츠의 카드 표지와 재생 화면에 쓰일 이미지예요. 고르지 않으면 채널 기본 배경 이미지가 쓰여요.
         </p>
-        <div className="mt-3 rounded-xl border border-stone-200 bg-white p-4">
+        <div className="mt-3">
           <ContentCoverPicker value={coverChoice} onChange={setCoverChoice} disabled={isSaving} />
         </div>
       </section>
@@ -269,7 +274,7 @@ export default function RecordPage() {
 
       <section>
         <h2 className="text-base font-semibold text-stone-900">공개 시점</h2>
-        <div className="mt-3 rounded-xl border border-stone-200 bg-white p-4">
+        <div className="mt-3">
           <PublishTimePicker value={publish} onChange={setPublish} disabled={isSaving} />
         </div>
       </section>
@@ -293,7 +298,7 @@ export default function RecordPage() {
           disabled={clipCount === 0 || isSaving}
           className="rounded-full bg-night-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-night-800 disabled:cursor-not-allowed disabled:bg-stone-300"
         >
-          {isSaving ? "믹싱 중…" : publish.isScheduled ? "예약 업로드" : "업로드"}
+          {isSaving ? "믹싱 중…" : publish.isScheduled ? "예약 업로드" : publish.isPrivate ? "비공개로 업로드" : "업로드"}
         </button>
       </div>
       </>

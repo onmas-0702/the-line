@@ -1,6 +1,6 @@
 "use client";
 
-// 이전 페이지로 — 가는 선 화살표 + "이전" 글자의 테두리 버튼(메인 화면 버튼과 같은 결).
+// 이전 페이지로 — 오렌지 그라데이션(위 살구빛 → 아래 오렌지) 바탕에 검은 화살표 + "이전" 글자(눈에 잘 띄게).
 // 이 사이트 안에서 넘어왔으면 브라우저 '뒤로'와 같고, 주소를 바로 열어 들어왔거나 다른
 // 사이트에서 왔으면 fallbackHref로 갑니다(사이트 밖으로 튕겨 나가지 않게).
 
@@ -54,10 +54,10 @@ export default function BackButton({ fallbackHref = "/", label = "이전", class
     <button
       type="button"
       onClick={() => BackNavigation.go(router, fallbackHref)}
-      className={`inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-transparent px-3 py-1.5 text-[13px] font-medium tracking-tight text-stone-600 transition hover:border-stone-400 hover:text-stone-900 ${className}`}
+      className={`inline-flex items-center gap-2 rounded-full bg-linear-to-b from-[#ffc48a] to-[#f59a4a] px-4 py-2 text-sm font-semibold tracking-tight text-stone-950 shadow-[inset_0_1px_0_rgb(255_255_255/0.45),0_4px_12px_-4px_rgb(245_154_74/0.6)] transition ${className}`}
       aria-label="이전 페이지로"
     >
-      <ArrowLeft size={15} strokeWidth={1.5} aria-hidden />
+      <ArrowLeft size={17} strokeWidth={2} aria-hidden />
       {label}
     </button>
   );

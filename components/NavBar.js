@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { DoorOpen, Home, Mic, UserRound } from "lucide-react";
+import { Home, Mic } from "lucide-react";
 import AccountMenu from "@/components/auth/AccountMenu";
+import BottomNav from "@/components/BottomNav";
 import { useChannel } from "@/components/ChannelProvider";
 import { titleEn, titleKo } from "@/components/common/titleFonts";
-import { MyPageMenu } from "@/lib/myPage";
 import { useAppStore } from "@/lib/store";
 
 // 채널 안의 메뉴 — 실제 주소는 채널마다 /{채널주소}/… 로 붙습니다. 스튜디오 메뉴는
@@ -129,36 +129,9 @@ function ImmersiveNav({ channel }) {
   );
 }
 
-/** 채널 메인 화면 아래의 아이콘 줄 — 홈 · 스튜디오 · 마이 페이지 · 나가기(플랫폼 메인으로). 넓은 화면에서도 보입니다. */
+/** 채널 메인·스튜디오 아래의 아이콘 줄(components/BottomNav.js). */
 function ChannelHomeNav({ channel, pathname }) {
-  const items = [
-    { href: channel.path(), label: "홈", icon: Home },
-    { href: channel.studioPath(), label: "스튜디오", icon: Mic },
-    { href: MyPageMenu.BASE_PATH, label: "마이페이지", icon: UserRound },
-    { href: "/", label: "나가기", icon: DoorOpen },
-  ];
-  return (
-    <nav data-bottom-nav className="fixed inset-x-0 bottom-0 z-10 border-t border-stone-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-3xl items-stretch justify-around px-2 py-1.5">
-        {items.map(({ href, label, icon: Icon }) => {
-          const active = href === "/" ? false : href === channel.studioPath() ? channel.isStudioPath(pathname) : pathname === href;
-          return (
-            <Link
-              key={label}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              className={`flex flex-1 flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[11px] font-medium transition ${
-                active ? "text-night-700" : "text-stone-500 hover:text-stone-700"
-              }`}
-            >
-              <Icon size={20} strokeWidth={active ? 2.4 : 2} />
-              {label}
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
-  );
+  return <BottomNav homeHref={channel.path()} studioHref={channel.studioPath()} pathname={pathname} />;
 }
 
 const HINT_MS = 3500; // 콘텐츠 화면을 연 직후 말풍선을 잠깐 보여 주는 시간

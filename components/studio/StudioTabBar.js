@@ -2,9 +2,9 @@
 
 // 스튜디오 맨 위 탭 줄 — 보여줄 탭은 StudioTab.visibleFor가 정합니다.
 
-import { Image as ImageIcon, Images, ListChecks, Megaphone, Mic, Users } from "lucide-react";
+import { GalleryHorizontalEnd, Image as ImageIcon, Images, ListChecks, Megaphone, Mic, Users } from "lucide-react";
 
-const ICONS = { content: Mic, manage: ListChecks, design: ImageIcon, community: Megaphone, gallery: Images, staff: Users };
+const ICONS = { content: Mic, manage: ListChecks, design: ImageIcon, community: Megaphone, gallery: Images, banner: GalleryHorizontalEnd, staff: Users };
 
 export default function StudioTabBar({ tabs, active, onSelect }) {
   if (tabs.length <= 1) return null;
