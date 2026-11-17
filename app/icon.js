@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import AppIconArt from "@/components/AppIconArt";
+import { AppIconImage } from "@/lib/appIconImage";
 import { WebAppBrand } from "@/lib/webApp";
 
 // 홈 화면·설치용 앱 아이콘(192·512px) — 주소: /icon/192, /icon/512
@@ -13,5 +14,6 @@ export function generateImageMetadata() {
 
 export default async function Icon({ id }) {
   const size = Number(await id);
-  return new ImageResponse(<AppIconArt size={size} />, { width: size, height: size });
+  const imageSrc = await AppIconImage.dataUri();
+  return new ImageResponse(<AppIconArt size={size} imageSrc={imageSrc} />, { width: size, height: size });
 }

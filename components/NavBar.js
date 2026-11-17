@@ -174,17 +174,17 @@ function ChannelHomeButton({ channel }) {
   );
 }
 
-/** 상단 채널 이름 — 이름 끝의 "더 라인"은 메인 제목처럼 영문 "The line"(이탤릭)으로 보여 줍니다. */
+/** 상단 채널 이름 — 이름 끝의 "더 라인"은 메인 제목처럼 ", The line"(영문 이탤릭)으로 보여 줍니다. */
 function ChannelTitle({ name }) {
   const SUFFIX = "더 라인";
-  const head = name.endsWith(SUFFIX) ? name.slice(0, -SUFFIX.length).trimEnd() : null;
+  const head = name.endsWith(SUFFIX) ? name.slice(0, -SUFFIX.length).trimEnd().replace(/,$/, "") : null;
   return (
     <span aria-label={name} className={`${titleKo.className} text-lg leading-none text-night-900 sm:text-xl`}>
       {head === null ? (
         name
       ) : (
         <>
-          {head}&nbsp;<span className={`${titleEn.className} text-[1.3em]`}>The line</span>
+          {head},&nbsp;<span className={`${titleEn.className} text-[1.3em]`}>The line</span>
         </>
       )}
     </span>

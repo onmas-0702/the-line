@@ -170,7 +170,7 @@ export default function ChannelHeader({ contentCount }) {
         ) : (
           <Link
             href={MembershipOffer.PATH}
-            className="rounded-full bg-stone-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
+            className="rounded-full bg-sky-500 px-5 py-2 text-sm font-medium text-white shadow-sm shadow-sky-500/30 transition hover:bg-sky-600"
           >
             {MembershipOffer.JOIN_LABEL}
           </Link>

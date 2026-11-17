@@ -5,6 +5,7 @@ import InstallBanner from "@/components/InstallBanner";
 import DispatchTick from "@/components/notifications/DispatchTick";
 import ViewerProvider from "@/components/ViewerProvider";
 import { PLATFORM_NAME } from "@/lib/mockData";
+import { SharePreview } from "@/lib/sharePreview";
 import { ServerViewer } from "@/lib/supabaseServer";
 import { WebAppBrand } from "@/lib/webApp";
 
@@ -22,6 +23,8 @@ export const metadata = {
     statusBarStyle: "default",
   },
   formatDetection: { telephone: false },
+  // 카카오톡 등에 링크를 보낼 때 보이는 그림·제목·설명(lib/sharePreview.js)
+  ...SharePreview.base(),
 };
 
 export const viewport = {

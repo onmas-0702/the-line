@@ -58,7 +58,7 @@ export function ContentToolbar({ query, onChange }) {
               onClick={() => update({ sort: option.value })}
               aria-pressed={query.sort === option.value}
               className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                query.sort === option.value ? "bg-stone-900 text-white" : "bg-stone-200/70 text-stone-700 hover:bg-stone-200"
+                query.sort === option.value ? "bg-[#56789f] text-white shadow-sm shadow-[#56789f]/25" : "bg-stone-200/70 text-stone-700 hover:bg-stone-200"
               }`}
             >
               {option.label}

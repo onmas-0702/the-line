@@ -1,20 +1,27 @@
 "use client";
 
-// 플랫폼 메인의 상단(밤하늘 그림 + "은혜의 밤 The line" + 계정 버튼 줄). 메인과 이미지 갤러리가
+// 플랫폼 메인의 상단(밤하늘 그림 + "은혜의 밤, The line" + 계정 버튼 줄). 메인과 이미지 갤러리가
 // 같은 탑 메뉴를 쓰도록 따로 뺐습니다. homeLink: 제목을 눌러 메인(/)으로 돌아가게(갤러리 등).
 
 import Image from "next/image";
 import Link from "next/link";
 import { Radio } from "lucide-react";
 import AccountMenu from "@/components/auth/AccountMenu";
+import { useViewer } from "@/components/ViewerProvider";
 import { titleEn, titleKo } from "@/components/common/titleFonts";
+import { AccessPolicy } from "@/lib/access";
 import { ChannelSlug } from "@/lib/channel";
 import { PLATFORM_TITLE } from "@/lib/mockData";
 
+const MY_CHANNEL = { href: `/${ChannelSlug.DEFAULT}`, label: "마이 채널", icon: Radio };
+
 export default function LandingHeader({ homeLink = false }) {
+  // "마이 채널"은 당분간 운영자에게만(AccessPolicy.canOpenMyChannel).
+  const viewer = useViewer();
+  const leading = AccessPolicy.canOpenMyChannel(viewer) ? [MY_CHANNEL] : [];
   const title = (
     <>
-      은혜의 밤&nbsp;<span className={`${titleEn.className} text-[45px]`}>The line</span>
+      은혜의 밤,&nbsp;<span className={`${titleEn.className} text-[45px]`}>The line</span>
     </>
   );
   const titleClass = `${titleKo.className} flex flex-1 items-center justify-center text-center text-[29px] leading-none text-white [text-shadow:0_1px_8px_rgb(0_0_0/0.5)]`;
@@ -44,7 +51,7 @@ export default function LandingHeader({ homeLink = false }) {
         variant="landing"
         membership
         bell={false}
-        leading={[{ href: `/${ChannelSlug.DEFAULT}`, label: "마이 채널", icon: Radio }]}
+        leading={leading}
       />
     </header>
   );
