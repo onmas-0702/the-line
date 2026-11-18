@@ -59,9 +59,14 @@ export function useAudioWorkbench() {
     return recorderRef.current;
   }
 
-  // segments를 바꾸는 모든 경로가 이 함수를 거치게 해서, 바뀌기 직전 상태를 이력에 쌓아둡니다.
+  // segments(목소리 클립)와 배경음악 클립을 바꾸는 모든 경로가 이 함수들을 거치게 해서,
+  // 바뀌기 직전 상태({ segments, musicClip })를 이력에 쌓아둡니다 — ⌘/Ctrl+Z가 둘 다 되돌립니다.
+  function remember() {
+    history().push({ segments, musicClip });
+  }
+
   function updateSegments(next) {
-    history().push(segments);
+    remember();
     setCanUndo(true);
     setIsDirty(true);
     setSegments((prev) => (typeof next === "function" ? next(prev) : next));
@@ -71,7 +76,8 @@ export function useAudioWorkbench() {
     if (!history().canUndo) return;
     const restored = history().pop();
     setCanUndo(history().canUndo);
-    setSegments(restored);
+    setSegments(restored.segments);
+    setMusicClipState(restored.musicClip);
   }
 
   // Ctrl+Z / Cmd+Z — 입력창에 포커스가 있으면 브라우저 기본 되돌리기를 그대로 둡니다.
@@ -175,6 +181,8 @@ export function useAudioWorkbench() {
   }
 
   function setMusicClip(next) {
+    remember();
+    setCanUndo(true);
     setMusicClipState(next);
     setIsDirty(true);
   }

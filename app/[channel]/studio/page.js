@@ -266,7 +266,7 @@ export default function RecordPage() {
       </section>
 
       <section>
-        <h2 className="text-base font-semibold text-stone-900">대본 첨부</h2>
+        <h2 className="text-base font-semibold text-stone-900">원고 첨부</h2>
         <div className="mt-3">
           <ScriptAttachField value={script} onChange={setScript} onReject={setSaveError} disabled={isSaving} />
         </div>

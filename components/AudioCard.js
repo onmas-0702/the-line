@@ -37,7 +37,7 @@ export default function AudioCard({ item }) {
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {item.hasScript && (
               <span className="inline-flex items-center gap-1 rounded-full bg-night-50 px-2 py-0.5 text-[11px] text-night-700">
-                <FileText size={11} /> 대본 있음
+                <FileText size={11} /> 원고 있음
               </span>
             )}
             {item.category && (
@@ -105,7 +105,7 @@ export default function AudioCard({ item }) {
             download={item.scriptFileName || true}
             className="ml-auto flex items-center gap-1 hover:text-night-700"
           >
-            <Download size={13} /> 대본 다운로드
+            <Download size={13} /> 원고 다운로드
           </a>
         ) : (
           <button
@@ -113,7 +113,7 @@ export default function AudioCard({ item }) {
             disabled={!item.hasScript}
             className="ml-auto flex items-center gap-1 hover:text-night-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Download size={13} /> 대본 다운로드
+            <Download size={13} /> 원고 다운로드
           </button>
         )}
       </div>

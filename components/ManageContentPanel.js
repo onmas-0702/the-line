@@ -66,7 +66,7 @@ function EditForm({ item, onCancel, onSave }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id]);
 
-  /** 대본을 바꾸거나 뺐으면 저장하고, 화면에 반영할 값을 돌려줍니다. */
+  /** 원고를 바꾸거나 뺐으면 저장하고, 화면에 반영할 값을 돌려줍니다. */
   async function saveScript() {
     if (!script.isChanged) return { ok: true, patch: {}, notice: "" };
     const file = script.fileToSave;
@@ -85,7 +85,7 @@ function EditForm({ item, onCancel, onSave }) {
         scriptFileName: result.row.script_file_name || "",
         scriptUrl: result.row.script_url || "",
       },
-      notice: result.cleanupFailed ? "예전 대본 파일을 지우지 못해 저장 공간에 남아 있어요." : "",
+      notice: result.cleanupFailed ? "예전 원고 파일을 지우지 못해 저장 공간에 남아 있어요." : "",
     };
   }
 
@@ -164,7 +164,7 @@ function EditForm({ item, onCancel, onSave }) {
       }
       const scriptSaved = await saveScript();
       if (!scriptSaved.ok) {
-        setError(`대본을 저장하지 못했어요: ${scriptSaved.reason}`);
+        setError(`원고를 저장하지 못했어요: ${scriptSaved.reason}`);
         return;
       }
       const cover = await saveCover();
@@ -223,7 +223,7 @@ function EditForm({ item, onCancel, onSave }) {
         </div>
       </div>
       <div>
-        <label className="block text-xs font-medium text-stone-500">대본</label>
+        <label className="block text-xs font-medium text-stone-500">원고</label>
         <div className="mt-1">
           <ScriptAttachField value={script} onChange={setScript} onReject={setError} disabled={isSaving} />
         </div>
@@ -389,7 +389,7 @@ export default function ManageContentPanel() {
   async function handleDelete(item) {
     if (typeof window !== "undefined") {
       const confirmed = window.confirm(
-        `"${item.title}"을(를) 삭제할까요?\n소리·대본 파일과 댓글·좋아요까지 모두 지워지고 되돌릴 수 없어요.`
+        `"${item.title}"을(를) 삭제할까요?\n소리·원고 파일과 댓글·좋아요까지 모두 지워지고 되돌릴 수 없어요.`
       );
       if (!confirmed) return;
     }

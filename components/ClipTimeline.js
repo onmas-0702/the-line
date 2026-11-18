@@ -26,8 +26,10 @@ import {
   AudioLines,
 } from "lucide-react";
 import LevelMeterView from "@/components/studio/LevelMeterView";
+import MusicTrackLane from "@/components/studio/MusicTrackLane";
 import WaveformCanvas from "@/components/studio/WaveformCanvas";
 import { BackgroundMixer, ClipGain, TimeFormat, WaveformAnalyzer } from "@/lib/audio";
+import { MusicClip } from "@/lib/audioProject";
 import { FileDrop, FileKind } from "@/lib/fileDrop";
 import {
   ClipRoll,
@@ -96,7 +98,8 @@ export default function ClipTimeline({
   const [cutHover, setCutHover] = useState(null); // { seconds, snapped, valid } — 자르기 표시선
   // 가장자리를 끄는 동안 화면에만 보여 줄 값 — 손을 떼면 한 번에 반영(실행 취소 1칸).
   const [edgeDraft, setEdgeDraft] = useState(null); // { ranges: { [clipId]: { inSample, outSample } }, label }
-  const [musicDraft, setMusicDraft] = useState(null); // 배경음악 클립 { startSeconds, offsetSeconds, endSeconds }
+  const [musicDraft, setMusicDraft] = useState(null); // 배경음악 클립 { startSeconds, offsetSeconds, endSeconds, pieces }
+  const [musicSelectedId, setMusicSelectedId] = useState(null); // 고른 배경음악 조각(목소리 클립을 고르면 풀림)
   const [frozenAxis, setFrozenAxis] = useState(null); // 끄는 동안 화면 배율 고정(초)
   const [isFileOver, setIsFileOver] = useState(false);
   const trackRowRef = useRef(null);
@@ -142,6 +145,10 @@ export default function ClipTimeline({
   });
   const musicStart = backgroundMixer.musicStartSeconds;
   const musicEnd = backgroundMixer.endSeconds(voiceSeconds);
+  const isMusicArranged = Boolean(shownMusic.pieces?.length);
+  // 배경음악 트랙에 보일 조각들 — 편집했으면 그 배치, 아니면 자동(곡이 짧으면 반복된 곳마다 조각).
+  const musicArrangement = backgroundBuffer ? backgroundMixer.arrangementFor(voiceSeconds, backgroundBuffer.duration) : null;
+  const activeMusicId = selectedId ? null : musicSelectedId;
   const naturalSeconds = hasBackground ? backgroundMixer.totalSeconds(voiceSeconds) : voiceSeconds;
   // 가장자리를 끄는 동안에는 화면 배율을 고정해서(전체 길이가 바뀌어도) 끄는 손과 가장자리가 어긋나지 않게 합니다.
   const axis = new TimeAxis(frozenAxis ?? naturalSeconds);
@@ -365,6 +372,7 @@ export default function ClipTimeline({
     const seconds = axis.secondsAt(e.clientX, rect);
     const located = timeline.locate(seconds, leadSeconds);
     if (located) setSelectedId(located.seg.id === selectedId ? null : located.seg.id);
+    setMusicSelectedId(null);
     seekTo(seconds);
   }
 
@@ -574,6 +582,40 @@ export default function ClipTimeline({
         if (state.music) onMusicClipChange(musicClip?.with ? musicClip.with(state.music) : state.music);
       },
     });
+  }
+
+  /** 배경음악 조각 편집(복사·붙이기·자르기·삭제·디졸브) 결과를 반영합니다. 자동 배치였다면 이때 조각으로 바뀝니다. */
+  function commitMusicArrangement(arrangement) {
+    onMusicClipChange(MusicClip.fromArrangement(arrangement));
+  }
+
+  function selectMusicPiece(id, seconds) {
+    setMusicSelectedId(id);
+    if (id) setSelectedId(null);
+    if (Number.isFinite(seconds)) seekTo(seconds);
+  }
+
+  // 편집한 배경음악 조각의 가장자리 — 앞 끝은 앞부분을, 뒤 끝은 뒷부분을 잘라 내거나 되살립니다(곡 길이 안에서).
+  function handleMusicPieceEdgeStart(e, pieceId, edge) {
+    const base = musicArrangement;
+    const song = backgroundBuffer?.duration || 0;
+    if (!base) return;
+    beginEdgeDrag(e, {
+      onMove: (delta, state) => {
+        state.music = MusicClip.fromArrangement(base.trim(pieceId, edge, delta, song));
+        setMusicDraft(state.music);
+      },
+      onEnd: (state) => {
+        setMusicDraft(null);
+        if (state.music) onMusicClipChange(state.music);
+      },
+    });
+  }
+
+  /** 편집한 배경음악을 처음의 자동 배치(곡이 짧으면 자동 반복, 끝은 자동)로 되돌립니다. */
+  function resetMusicArrangement() {
+    onMusicClipChange(new MusicClip({ startSeconds: musicStart }));
+    setMusicSelectedId(null);
   }
 
   /** 배경음악 끝을 다시 "자동"(마지막 목소리 끝 + 페이드아웃)으로. */
@@ -972,112 +1014,52 @@ export default function ClipTimeline({
             </button>
           )}
 
-          {/* 배경음악 트랙 — 오디오 트랙과 같은 시간축. 곡을 올리면 "배경음악 클립" 상자가 생기고, 양쪽 가장자리를
-              끌어 시작·끝을 바꿉니다(앞 끝: 앞부분 트리밍, 뒤 끝: 당기면 곡이 반복해서 이어짐). 가운데 세로선은 볼륨. */}
+          {/* 배경음악 트랙 — 오디오 트랙과 같은 시간축. 곡을 올리면 조각(클립)으로 보이고, 조각을 골라
+              복사·붙이기·자르기·삭제·디졸브, 가장자리 끌기로 다듬습니다(components/studio/MusicTrackLane.js). */}
           {(() => {
             const effectiveBgVolume = bgVolumeDraft ?? ClipGain.clamp(backgroundVolume);
-            const hasClip = Boolean(hasBackground && songPeaks && hasAnything);
-            const clipSeconds = Math.max(0, musicEnd - musicStart);
-            const bars = hasClip ? Math.max(12, Math.min(600, Math.round(clipSeconds * 4))) : 0;
-            const song = backgroundBuffer?.duration || 0;
-            const isMusicDragging = Boolean(musicDraft);
+            const hasClip = Boolean(hasBackground && songPeaks && hasAnything && musicArrangement);
             const isCustomEnd = musicClip?.endSeconds !== null && musicClip?.endSeconds !== undefined;
+            if (hasClip) {
+              return (
+                <MusicTrackLane
+                  axis={axis}
+                  arrangement={musicArrangement}
+                  isArranged={isMusicArranged}
+                  mixer={backgroundMixer}
+                  voiceSeconds={voiceSeconds}
+                  songPeaks={songPeaks}
+                  songSeconds={backgroundBuffer.duration}
+                  volume={effectiveBgVolume}
+                  isVolumeDragging={bgVolumeDraft !== null}
+                  isDragging={Boolean(musicDraft)}
+                  backgroundName={backgroundName}
+                  playheadSeconds={playheadSeconds}
+                  selectedId={activeMusicId}
+                  onSelect={selectMusicPiece}
+                  onChange={commitMusicArrangement}
+                  onPieceEdgeStart={handleMusicPieceEdgeStart}
+                  onAutoEdgeStart={handleMusicEdgeStart}
+                  onVolumeDragStart={handleBgVolumeDragStart}
+                  resetLabel={isMusicArranged ? "자동 배치로" : isCustomEnd ? "끝 자동 맞춤" : ""}
+                  resetTitle={
+                    isMusicArranged
+                      ? "편집한 조각을 모두 지우고 처음처럼 자동(곡이 짧으면 반복, 끝은 목소리에 맞춤)으로 되돌려요"
+                      : "배경음악 끝을 마지막 오디오 끝 + 페이드아웃으로 되돌려요"
+                  }
+                  onReset={isMusicArranged ? resetMusicArrangement : resetMusicEnd}
+                  VolumeBadge={VolumeBadge}
+                />
+              );
+            }
             return (
-              <div className={`mt-1 rounded-lg p-1.5 ${hasClip ? "bg-sky-50/60" : "border border-dashed border-sky-200 bg-sky-50/40"}`}>
+              <div className="mt-1 rounded-lg border border-dashed border-sky-200 bg-sky-50/40 p-1.5">
                 <div className="mb-1 h-4">
                   <span className="sticky left-1.5 inline-flex items-center gap-1 text-[10px] font-semibold text-sky-700">
                     <Music size={11} /> 배경음악 트랙
-                    {hasClip && (
-                      <span className="font-medium text-sky-600">
-                        · {backgroundName || "배경음악"} · {TimeFormat.precise(musicStart)}~{TimeFormat.precise(musicEnd)}
-                        {musicStart > 0 || backgroundMixer.musicOffsetSeconds > 0
-                          ? ` · 곡의 ${TimeFormat.precise(backgroundMixer.musicOffsetSeconds)}부터`
-                          : ""}{" "}
-                        · 볼륨 {ClipGain.label(effectiveBgVolume)}
-                      </span>
-                    )}
-                    {hasClip && isCustomEnd && !isMusicDragging && (
-                      <button
-                        type="button"
-                        onClick={resetMusicEnd}
-                        className="ml-1 rounded-full border border-sky-300 bg-white px-1.5 py-px text-[10px] font-medium text-sky-700"
-                        title="배경음악 끝을 마지막 오디오 끝 + 페이드아웃으로 되돌려요"
-                      >
-                        끝 자동 맞춤
-                      </button>
-                    )}
                   </span>
                 </div>
-                {hasClip ? (
-                  <div className="relative h-16">
-                    <div
-                      style={{ left: `${axis.percentOf(musicStart)}%`, width: `${axis.percentOf(clipSeconds)}%` }}
-                      className="group absolute inset-y-0 overflow-hidden rounded-md bg-sky-100/70"
-                    >
-                      {/* 곡의 실제 위치(앞부분 트리밍·반복)대로 고른 막대 × 볼륨 × 시간별 볼륨(3초 뒤 낮추기, 끝 페이드아웃). */}
-                      <div className="absolute inset-0 flex items-end gap-[1px] px-px">
-                        {Array.from({ length: bars }, (_, i) => {
-                          const t = musicStart + ((i + 0.5) / bars) * clipSeconds;
-                          const pos = backgroundMixer.sourceSecondsAt(t, song);
-                          const v = songPeaks[Math.min(songPeaks.length - 1, Math.floor((pos / song) * songPeaks.length))] || 0;
-                          const level = backgroundMixer.levelAt(t, voiceSeconds);
-                          return (
-                            <span
-                              key={i}
-                              className="w-full rounded-sm bg-sky-400/80"
-                              style={{ height: `max(1px, ${(v * effectiveBgVolume * level) / ClipGain.MAX}%)` }}
-                            />
-                          );
-                        })}
-                      </div>
-                      <div
-                        className={`pointer-events-none absolute inset-0 rounded-md border-2 ${
-                          isMusicDragging ? "border-amber-500" : "border-sky-300/70 group-hover:border-sky-400"
-                        }`}
-                      />
-                      {/* 볼륨 손잡이 */}
-                      <div
-                        onMouseDown={handleBgVolumeDragStart}
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute inset-y-0 left-1/2 z-10 flex w-6 -translate-x-1/2 cursor-ns-resize items-start justify-center"
-                        title={`배경음악 볼륨 ${ClipGain.label(effectiveBgVolume)} (위아래로 끌어서 5%씩 조절)`}
-                      >
-                        <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-sky-500/60" />
-                        <div
-                          className="pointer-events-none absolute left-1/2 flex h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-sky-600 shadow"
-                          style={{ top: `${ClipGain.handleTopPercent(effectiveBgVolume)}%` }}
-                        >
-                          <GripHorizontal size={8} className="text-white" />
-                        </div>
-                        <VolumeBadge gain={effectiveBgVolume} active={bgVolumeDraft !== null} tone="sky" />
-                      </div>
-                      {/* 양쪽 가장자리 — 시작(앞부분 트리밍) / 끝 */}
-                      {["start", "end"].map((edge) => (
-                        <div
-                          key={edge}
-                          data-edge={edge}
-                          onMouseDown={handleMusicEdgeStart}
-                          onClick={(e) => e.stopPropagation()}
-                          style={{ width: EDGE_PX }}
-                          className={`group/edge absolute inset-y-0 z-20 cursor-ew-resize ${edge === "start" ? "left-0" : "right-0"}`}
-                          title={
-                            edge === "start"
-                              ? "배경음악 시작 — 오른쪽으로 끌면 늦게 시작하며 곡 앞부분이 잘려요"
-                              : "배경음악 끝 — 좌우로 끌기(곡보다 길게 당기면 반복해서 이어져요)"
-                          }
-                          aria-label={edge === "start" ? "배경음악 시작 트리밍" : "배경음악 끝 트리밍"}
-                        >
-                          <span
-                            className={`absolute inset-y-0 w-1 bg-sky-500/70 transition group-hover/edge:w-1.5 group-hover/edge:bg-amber-500 ${
-                              edge === "start" ? "left-0 rounded-l-md" : "right-0 rounded-r-md"
-                            }`}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex h-16 items-center">
+                <div className="flex h-16 items-center">
                     <span className="sticky left-1.5 inline-flex flex-wrap items-center gap-2 text-xs text-sky-700/80">
                       {backgroundPending ? (
                         "배경음악을 불러오는 중…"
@@ -1097,7 +1079,6 @@ export default function ClipTimeline({
                       )}
                     </span>
                   </div>
-                )}
               </div>
             );
           })()}

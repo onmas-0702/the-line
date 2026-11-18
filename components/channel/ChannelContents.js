@@ -78,7 +78,7 @@ export function ContentToolbar({ query, onChange }) {
   );
 }
 
-// 카드: 썸네일 → 제목 → 날짜 → 대본 받기. 썸네일·제목을 누르면 그 콘텐츠의 화면(전체 화면 배경 + 큰 재생 버튼)으로.
+// 카드: 썸네일 → 제목 → 날짜 → 원고 받기. 썸네일·제목을 누르면 그 콘텐츠의 화면(전체 화면 배경 + 큰 재생 버튼)으로.
 function ContentCard({ item, href, thumbnailUrl }) {
   const scriptHref = ScriptDownload.url(item);
   return (
@@ -100,10 +100,10 @@ function ContentCard({ item, href, thumbnailUrl }) {
           href={scriptHref}
           download={item.scriptFileName || true}
           className="mt-1 inline-flex items-center gap-1 rounded-full py-0.5 text-[11px] text-night-700 hover:underline"
-          aria-label={`${item.title} 대본 받기`}
-          title={item.scriptFileName || "대본 받기"}
+          aria-label={`${item.title} 원고 받기`}
+          title={item.scriptFileName || "원고 받기"}
         >
-          <FileDown size={13} strokeWidth={1.75} /> 대본
+          <FileDown size={13} strokeWidth={1.75} /> 원고
         </a>
       )}
     </article>
