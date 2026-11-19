@@ -11,6 +11,9 @@
 //   · 롤링 — 조각의 앞·뒤 끝을 끌면 그 조각 길이만 바뀌고 뒤 조각들이 따라 움직임(마우스 [◀ / ▶]).
 //   · 트리밍 도구(T) — 켜고 조각 안을 끌면 조각 자리·길이는 그대로, 안에서 들리는 곡 위치만 옮김(마우스 [◀▶]).
 //   · 조각 가장자리 끌기 — 앞·뒤를 잘라 내거나 되살리기(곡 길이 안에서)
+//   · 볼륨 — 조각이 하나면 가운데 세로선이 트랙 볼륨. 조각이 둘 이상이면 조각마다 가운데 세로선이
+//     그 조각 볼륨이 되고(트랙 볼륨에 곱해짐), 트랙 볼륨은 이름 옆 가로 막대로 조절합니다.
+//   · 뮤트 — 이름 옆 버튼. 듣는 동안만 배경음악을 끕니다(저장에는 영향 없음).
 // 키보드: ⌘/Ctrl+C 복사, ⌘/Ctrl+V 붙이기, B 재생선에서 자르기, T 트리밍 도구 켜기/끄기,
 //         Delete 삭제(배경음악 조각이나 디졸브를 골랐을 때만).
 // 계산은 lib/musicArrangement.js, 실제 소리는 BackgroundMixer가 같은 배치로 섞습니다.
@@ -21,6 +24,7 @@ import { ClipGain, TimeFormat } from "@/lib/audio";
 import { MusicArrangement } from "@/lib/musicArrangement";
 import { FocusGuard } from "@/lib/timeline";
 import { EditCursor } from "@/lib/editCursors";
+import MuteButton from "@/components/studio/MuteButton";
 
 const EDGE_PX = 14; // 조각 끝 롤링 잡는 폭
 const TRIM_PX = 8; // 두 조각 사이 트리밍 잡는 폭(경계 가운데)
@@ -57,10 +61,10 @@ function DissolveHandle({ side, onMouseDown }) {
 /** 조각 하나의 파형 — 곡의 실제 위치대로 고른 막대(가운데 기준).
  *  높이: 곡 모양 × 트랙 볼륨 × 디졸브, 진하기: 시간별 볼륨(줄이기·페이드).
  *  막대가 많아서, 재생선이 움직이는 등 다른 이유로 화면이 다시 그려질 땐 건너뜁니다(memo, 아래 sameWave). */
-const PieceWave = memo(function PieceWave({ start, length, offsetSeconds, fadeIn, fadeOut, songPeaks, songSeconds, volume, isSelected, mixer, voiceSeconds }) {
+const PieceWave = memo(function PieceWave({ start, length, offsetSeconds, fadeIn, fadeOut, songPeaks, songSeconds, volume, pieceGain = 1, isSelected, mixer, voiceSeconds }) {
   const bars = Math.max(6, Math.min(400, Math.round(length * 4)));
   const entry = { start, end: start + length, fadeIn, fadeOut };
-  const volumeFraction = volume / ClipGain.MAX;
+  const volumeFraction = Math.min(1, (volume * pieceGain) / ClipGain.MAX);
   return (
     <div className="absolute inset-0 flex items-center gap-[1px] px-px py-1">
       {Array.from({ length: bars }, (_, i) => {
@@ -82,7 +86,7 @@ const PieceWave = memo(function PieceWave({ start, length, offsetSeconds, fadeIn
 
 /** mixer는 렌더마다 새로 만들어지므로, 그 대신 시간별 볼륨 값(levelKey)으로 비교합니다. */
 function sameWave(a, b) {
-  const keys = ["start", "length", "offsetSeconds", "fadeIn", "fadeOut", "songPeaks", "songSeconds", "volume", "isSelected", "voiceSeconds"];
+  const keys = ["start", "length", "offsetSeconds", "fadeIn", "fadeOut", "songPeaks", "songSeconds", "volume", "pieceGain", "isSelected", "voiceSeconds"];
   return keys.every((k) => a[k] === b[k]) && a.mixer.levelKey(a.voiceSeconds) === b.mixer.levelKey(b.voiceSeconds);
 }
 
@@ -134,6 +138,9 @@ export default function MusicTrackLane({
   onRemoveMusic = null, // () => void — 마지막 남은 조각을 지우면 배경음악 자체를 뺍니다
   onAutoEdgeStart, // (e) — 자동 배치의 맨 앞·맨 뒤 가장자리(data-edge)
   onVolumeDragStart,
+  onVolumeChange = null, // (volume) => void — 조각이 여럿일 때 이름 옆 가로 막대로 트랙 볼륨 조절
+  isMuted = false,
+  onToggleMute = null,
   resetLabel = "", // 있으면 되돌리기 버튼(자동: "끝 자동 맞춤", 편집됨: "자동 배치로")
   resetTitle = "",
   onReset,
@@ -143,6 +150,7 @@ export default function MusicTrackLane({
   const [dissolveDrag, setDissolveDrag] = useState(null); // { kind: "trim" | "slip" | "dissolve", id, edge, startX, rect }
   const [draftDissolve, setDraftDissolve] = useState(null); // 손잡이를 끈 거리(초, 오른쪽 +)
   const [isTrimTool, setIsTrimTool] = useState(false); // 트리밍 도구(T) — 켜면 조각 안을 끌어 곡 위치를 옮김
+  const [gainDraft, setGainDraft] = useState(null); // { id, gain } — 조각 볼륨을 끄는 동안 미리보기
   const laneRef = useRef(null);
 
   // 디졸브 손잡이를 끄는 동안엔 그 길이로 미리 보여 줍니다(놓으면 반영).
@@ -219,6 +227,27 @@ export default function MusicTrackLane({
       e.preventDefault();
       setDissolveDrag({ kind: "slip", id, edge: null, startX: e.clientX, rect: laneRef.current.getBoundingClientRect() });
       setDraftDissolve(0);
+    },
+    /** 조각 볼륨 — 그 조각 가운데 세로선을 위아래로. 놓을 때 한 번 반영(실행 취소 1칸). */
+    startGainDrag(e, piece) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = e.currentTarget.getBoundingClientRect();
+      let gain = piece.gain;
+      setGainDraft({ id: piece.id, gain });
+      const move = (ev) => {
+        gain = ClipGain.fromPointer(ev.clientY, rect.top, rect.height);
+        setGainDraft({ id: piece.id, gain });
+      };
+      const up = () => {
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+        setGainDraft(null);
+        onChange(arrangement.setGain(piece.id, gain));
+      };
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
     },
     toggleTrimTool() {
       setIsTrimTool((on) => !on);
@@ -301,6 +330,10 @@ export default function MusicTrackLane({
     return () => window.removeEventListener("keydown", handleKeyDown);
   });
 
+  // 조각이 둘 이상이면 조각마다 볼륨 손잡이(트랙 볼륨은 이름 옆 가로 막대로).
+  const hasPieceVolumes = layout.length > 1;
+  const gainOf = (piece) => (gainDraft?.id === piece.id ? gainDraft.gain : piece.gain);
+
   const dissolveTargetId = selectedDissolveId || selected?.piece.id || null;
   const dissolveTarget = dissolveTargetId ? shown.find(dissolveTargetId) : null;
   const hasDissolve = Boolean(dissolveTarget?.dissolveSeconds);
@@ -322,6 +355,22 @@ export default function MusicTrackLane({
             · {backgroundName || "배경음악"} · {TimeFormat.precise(trackStart)}~{TimeFormat.precise(trackEnd)} · 조각 {layout.length}개 · 볼륨{" "}
             {ClipGain.label(volume)}
           </span>
+          {onToggleMute && <MuteButton muted={isMuted} onToggle={onToggleMute} label="배경음악 트랙" tone="sky" />}
+          {hasPieceVolumes && onVolumeChange && (
+            <label className="ml-1 inline-flex items-center gap-1 font-medium text-sky-700" title="배경음악 트랙 전체 볼륨 — 조각 볼륨에 함께 곱해져요">
+              트랙 볼륨
+              <input
+                type="range"
+                min={ClipGain.MIN}
+                max={ClipGain.MAX}
+                step={ClipGain.STEP}
+                value={volume}
+                onChange={(e) => onVolumeChange(Number(e.target.value))}
+                className="h-1 w-20 accent-sky-600"
+                aria-label="배경음악 트랙 볼륨"
+              />
+            </label>
+          )}
           {onRemoveMusic && !isDragging && (
             <button
               type="button"
@@ -413,7 +462,7 @@ export default function MusicTrackLane({
         </span>
       </div>
 
-      <div ref={laneRef} className="relative h-16">
+      <div ref={laneRef} className={`relative h-16 transition-opacity ${isMuted ? "opacity-40" : ""}`}>
         {layout.map((entry) => {
           const { piece, start, end } = entry;
           const length = end - start;
@@ -451,6 +500,7 @@ export default function MusicTrackLane({
                 songPeaks={songPeaks}
                 songSeconds={songSeconds}
                 volume={volume}
+                pieceGain={gainOf(piece)}
                 isSelected={isSelected}
                 mixer={mixer}
                 voiceSeconds={voiceSeconds}
@@ -460,6 +510,24 @@ export default function MusicTrackLane({
                   isSelected ? "border-amber-500" : isDragging ? "border-amber-400/70" : "border-sky-300/70 group-hover:border-sky-400"
                 }`}
               />
+              {hasPieceVolumes && !isTrimTool && (
+                <div
+                  onMouseDown={(e) => actions.startGainDrag(e, piece)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute inset-y-1 left-1/2 z-10 flex w-6 -translate-x-1/2 cursor-ns-resize items-start justify-center"
+                  title={`이 조각 볼륨 ${ClipGain.label(gainOf(piece))} (위아래로 끌어서 5%씩 조절)`}
+                  aria-label="조각 볼륨"
+                >
+                  <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-sky-500/60" />
+                  <div
+                    className="pointer-events-none absolute left-1/2 flex h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-sky-600 shadow"
+                    style={{ top: `${ClipGain.handleTopPercent(gainOf(piece))}%` }}
+                  >
+                    <GripHorizontal size={8} className="text-white" />
+                  </div>
+                  <VolumeBadge gain={gainOf(piece)} active={gainDraft?.id === piece.id} tone="sky" />
+                </div>
+              )}
               {edges.map((edge) => (
                 <div
                   key={edge}
@@ -548,7 +616,8 @@ export default function MusicTrackLane({
             );
           })}
 
-        {/* 트랙 전체 볼륨 손잡이 — 배경음악 전체 구간의 가운데 */}
+        {/* 트랙 전체 볼륨 손잡이 — 배경음악 전체 구간의 가운데(조각이 하나일 때만. 여럿이면 이름 옆 가로 막대) */}
+        {!hasPieceVolumes && (
         <div
           className="pointer-events-none absolute inset-y-0 z-10"
           style={{ left: `${axis.percentOf(trackStart)}%`, width: `${axis.percentOf(trackEnd - trackStart)}%` }}
@@ -569,6 +638,7 @@ export default function MusicTrackLane({
             <VolumeBadge gain={volume} active={isVolumeDragging} tone="sky" />
           </div>
         </div>
+        )}
       </div>
 
       {!isArranged && layout.length > 1 && (
