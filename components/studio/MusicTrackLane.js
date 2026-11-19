@@ -131,6 +131,7 @@ export default function MusicTrackLane({
   onSelect, // (id | null, seconds?) => void
   onChange, // (MusicArrangement) => void
   onPieceEdgeStart, // (e, pieceId, edge) — 편집한 배치의 조각 가장자리
+  onRemoveMusic = null, // () => void — 마지막 남은 조각을 지우면 배경음악 자체를 뺍니다
   onAutoEdgeStart, // (e) — 자동 배치의 맨 앞·맨 뒤 가장자리(data-edge)
   onVolumeDragStart,
   resetLabel = "", // 있으면 되돌리기 버튼(자동: "끝 자동 맞춤", 편집됨: "자동 배치로")
@@ -177,7 +178,14 @@ export default function MusicTrackLane({
         onSelect(null);
         return;
       }
-      if (!selected || arrangement.pieces.length <= 1) return;
+      if (!selected) return;
+      if (arrangement.pieces.length <= 1) {
+        // 조각이 하나뿐이면 배경음악 자체를 뺍니다(라이브러리에서 다시 고를 수 있어요).
+        if (!onRemoveMusic) return;
+        onSelect(null);
+        onRemoveMusic();
+        return;
+      }
       onChange(arrangement.remove(selected.piece.id));
       onSelect(null);
     },
@@ -314,6 +322,19 @@ export default function MusicTrackLane({
             · {backgroundName || "배경음악"} · {TimeFormat.precise(trackStart)}~{TimeFormat.precise(trackEnd)} · 조각 {layout.length}개 · 볼륨{" "}
             {ClipGain.label(volume)}
           </span>
+          {onRemoveMusic && !isDragging && (
+            <button
+              type="button"
+              onClick={() => {
+                onSelect(null);
+                onRemoveMusic();
+              }}
+              className="ml-1 rounded-full border border-sky-300 bg-white px-1.5 py-px text-[10px] font-medium text-sky-700 hover:border-rose-300 hover:text-rose-600"
+              title="배경음악을 통째로 빼요. 라이브러리에서 다시 고를 수 있어요"
+            >
+              배경음악 빼기
+            </button>
+          )}
           {resetLabel && !isDragging && (
             <button
               type="button"
@@ -369,8 +390,14 @@ export default function MusicTrackLane({
             label="삭제"
             shortcut="Del"
             onClick={actions.remove}
-            disabled={!selectedDissolveId && (!selected || layout.length <= 1)}
-            title={selectedDissolveId ? "고른 디졸브를 지워요 (Delete)" : "고른 조각을 빼요. 뒤 조각이 당겨져요 (Delete)"}
+            disabled={!selectedDissolveId && (!selected || (layout.length <= 1 && !onRemoveMusic))}
+            title={
+              selectedDissolveId
+                ? "고른 디졸브를 지워요 (Delete)"
+                : layout.length <= 1
+                  ? "배경음악을 빼요. 라이브러리에서 다시 고를 수 있어요 (Delete)"
+                  : "고른 조각을 빼요. 뒤 조각이 당겨져요 (Delete)"
+            }
           />
           <ToolButton
             glyph="⧓"

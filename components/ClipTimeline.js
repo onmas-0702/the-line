@@ -85,6 +85,7 @@ export default function ClipTimeline({
   onRequestBackground = null, // 빈 배경음악 트랙의 [배경음악 고르기] — 라이브러리로 이동
   musicClip = null, // { startSeconds, offsetSeconds, endSeconds|null } — 배경음악 클립(MusicClip)
   onMusicClipChange = () => {},
+  onRemoveBackground = null, // () => void — 배경음악 트랙에서 배경음악 빼기
 }) {
   const [selectedId, setSelectedId] = useState(null);
   const [mode, setMode] = useState(MODE.SELECT);
@@ -1039,6 +1040,13 @@ export default function ClipTimeline({
                   onSelect={selectMusicPiece}
                   onChange={commitMusicArrangement}
                   onPieceEdgeStart={handleMusicPieceEdgeStart}
+                  onRemoveMusic={
+                    onRemoveBackground &&
+                    (() => {
+                      setMusicSelectedId(null);
+                      onRemoveBackground();
+                    })
+                  }
                   onAutoEdgeStart={handleMusicEdgeStart}
                   onVolumeDragStart={handleBgVolumeDragStart}
                   resetLabel={isMusicArranged ? "자동 배치로" : isCustomEnd ? "끝 자동 맞춤" : ""}

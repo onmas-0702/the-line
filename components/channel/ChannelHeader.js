@@ -15,6 +15,8 @@ import { FeatureFlags } from "@/lib/featureFlags";
 import { MembershipOffer } from "@/lib/subscription";
 import { AccessPolicy } from "@/lib/access";
 import { ChannelImageSlot } from "@/lib/channelProfile";
+import { ChannelDisplayName } from "@/lib/channel";
+import { titleEn } from "@/components/common/titleFonts";
 import { useAppStore } from "@/lib/store";
 
 function DescriptionEditor({ initial, onSave, onCancel }) {
@@ -100,7 +102,9 @@ export default function ChannelHeader({ contentCount }) {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <h1 className="text-xl font-bold leading-tight text-stone-900 sm:text-2xl">{channel.name}</h1>
+            <h1 aria-label={channel.name} className="text-xl font-bold leading-tight text-stone-900 sm:text-2xl">
+              <ChannelHeading name={channel.name} />
+            </h1>
             <NotificationBell
               iconOnly
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-stone-500 transition hover:bg-stone-100 hover:text-stone-700"
@@ -177,5 +181,16 @@ export default function ChannelHeader({ contentCount }) {
         )}
       </div>
     </section>
+  );
+}
+
+/** 채널 큰 제목 — "은혜의 밤 더 라인"은 "은혜의 밤, The line"(영문은 메인 제목과 같은 글꼴)으로. */
+function ChannelHeading({ name }) {
+  const display = new ChannelDisplayName(name);
+  if (!display.hasEnglishSuffix) return name;
+  return (
+    <>
+      {display.head},&nbsp;<span className={`${titleEn.className} text-[1.25em] font-normal`}>{ChannelDisplayName.ENGLISH}</span>
+    </>
   );
 }

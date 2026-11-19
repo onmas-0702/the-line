@@ -8,6 +8,7 @@ import AccountMenu from "@/components/auth/AccountMenu";
 import BottomNav from "@/components/BottomNav";
 import { useChannel } from "@/components/ChannelProvider";
 import { titleEn, titleKo } from "@/components/common/titleFonts";
+import { ChannelDisplayName } from "@/lib/channel";
 import { useAppStore } from "@/lib/store";
 
 // 채널 안의 메뉴 — 실제 주소는 채널마다 /{채널주소}/… 로 붙습니다. 스튜디오 메뉴는
@@ -176,8 +177,7 @@ function ChannelHomeButton({ channel }) {
 
 /** 상단 채널 이름 — 이름 끝의 "더 라인"은 메인 제목처럼 ", The line"(영문 이탤릭)으로 보여 줍니다. */
 function ChannelTitle({ name }) {
-  const SUFFIX = "더 라인";
-  const head = name.endsWith(SUFFIX) ? name.slice(0, -SUFFIX.length).trimEnd().replace(/,$/, "") : null;
+  const { head } = new ChannelDisplayName(name);
   return (
     <span aria-label={name} className={`${titleKo.className} text-lg leading-none text-night-900 sm:text-xl`}>
       {head === null ? (

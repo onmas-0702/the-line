@@ -138,6 +138,7 @@ export default function AudioWorkbench({ workbench, intro = null, defaultInputTa
             onVoiceOffsetChange={workbench.setVoiceOffsetSeconds}
             musicClip={workbench.musicClip}
             onMusicClipChange={workbench.setMusicClip}
+            onRemoveBackground={() => workbench.setSelectedTrack(null)}
             onDropFiles={(files, rejected) => workbench.addFiles(files, rejected)}
             backgroundPending={Boolean(selectedBackgroundTrack) && !workbench.bgTrackBuffer}
             onRequestBackground={() => pickerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
@@ -173,9 +174,9 @@ export default function AudioWorkbench({ workbench, intro = null, defaultInputTa
           {selectedBackgroundTrack ? (
             <p className="mt-2 text-xs text-emerald-600">
               &quot;{selectedBackgroundTrack.name}&quot;이(가) 먼저 나오고, {voiceOffsetSeconds.toFixed(1)}초 후 목소리가 이어서
-              시작돼요. 배경음악은 처음 {BackgroundMixer.DUCK_AFTER_SECONDS}초 동안 원래 볼륨으로 나오다가
-              {BackgroundMixer.DUCK_RAMP_SECONDS}초에 걸쳐 설정 볼륨의 {Math.round(BackgroundMixer.DUCK_LEVEL * 100)}% 수준으로
-              낮아지고(더킹), 목소리가 나오는 동안 계속 낮게 유지돼요. 마지막 오디오가 끝나면 배경음악만{" "}
+              시작돼요. 배경음악은 원래 볼륨으로 나오다가 목소리가 시작되기 {BackgroundMixer.DUCK_RAMP_SECONDS}초 전부터 서서히
+              줄어들어, 목소리가 시작될 때 설정 볼륨의 {Math.round(BackgroundMixer.DUCK_LEVEL * 100)}% 수준이 되고(더킹), 목소리가
+              나오는 동안 계속 낮게 유지돼요. 오디오 트랙 위치를 옮기면 줄어드는 시점도 함께 따라가요. 마지막 오디오가 끝나면 배경음악만{" "}
               {BackgroundMixer.FADE_OUT_SECONDS}초 더 이어지며 서서히 페이드아웃돼요. 이 볼륨 변화는 편집 타임라인의 배경음악
               트랙 파형에도 그대로 보여요. (하늘색 인트로 구간을 드래그하면 목소리 시작 시점을 바꿀 수 있어요.)
             </p>

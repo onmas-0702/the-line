@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import ChannelProvider from "@/components/ChannelProvider";
 import NavBar from "@/components/NavBar";
 import { resolveChannel } from "@/lib/channelLookup";
+import { ChannelDisplayName } from "@/lib/channel";
 import { PLATFORM_NAME } from "@/lib/mockData";
 import { AppStoreProvider } from "@/lib/store";
 
@@ -10,7 +11,9 @@ import { AppStoreProvider } from "@/lib/store";
 export async function generateMetadata({ params }) {
   const { channel: slug } = await params;
   const channel = await resolveChannel(slug);
-  return { title: channel ? `${channel.name} · ${PLATFORM_NAME}` : PLATFORM_NAME };
+  if (!channel) return { title: PLATFORM_NAME };
+  // "은혜의 밤 더 라인"처럼 이름에 플랫폼 이름이 이미 들어 있으면 " · 더 라인"을 덧붙이지 않습니다.
+  return { title: ChannelDisplayName.footerText(channel.name, PLATFORM_NAME) };
 }
 
 export default async function ChannelLayout({ children, params }) {
@@ -36,7 +39,7 @@ export default async function ChannelLayout({ children, params }) {
           <NavBar />
           <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-24 sm:pb-6">{children}</main>
           <footer className="hidden border-t border-stone-200 py-4 text-center text-xs text-stone-400 sm:block sm:group-has-[[data-bottom-nav]]/channel:pb-20">
-            {channel.name} · {PLATFORM_NAME} · 와이어프레임 미리보기
+            {ChannelDisplayName.footerText(channel.name, PLATFORM_NAME)}
           </footer>
         </div>
       </AppStoreProvider>
