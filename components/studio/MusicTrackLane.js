@@ -13,7 +13,6 @@
 //   · 조각 가장자리 끌기 — 앞·뒤를 잘라 내거나 되살리기(곡 길이 안에서)
 //   · 볼륨 — 조각이 하나면 가운데 세로선이 트랙 볼륨. 조각이 둘 이상이면 조각마다 가운데 세로선이
 //     그 조각 볼륨이 되고(트랙 볼륨에 곱해짐), 트랙 볼륨은 이름 옆 가로 막대로 조절합니다.
-//   · 뮤트 — 이름 옆 버튼. 듣는 동안만 배경음악을 끕니다(저장에는 영향 없음).
 // 키보드: ⌘/Ctrl+C 복사, ⌘/Ctrl+V 붙이기, B 재생선에서 자르기, T 트리밍 도구 켜기/끄기,
 //         Delete 삭제(배경음악 조각이나 디졸브를 골랐을 때만).
 // 계산은 lib/musicArrangement.js, 실제 소리는 BackgroundMixer가 같은 배치로 섞습니다.
@@ -24,7 +23,6 @@ import { ClipGain, TimeFormat } from "@/lib/audio";
 import { MusicArrangement } from "@/lib/musicArrangement";
 import { FocusGuard } from "@/lib/timeline";
 import { EditCursor } from "@/lib/editCursors";
-import MuteButton from "@/components/studio/MuteButton";
 
 const EDGE_PX = 14; // 조각 끝 롤링 잡는 폭
 const TRIM_PX = 8; // 두 조각 사이 트리밍 잡는 폭(경계 가운데)
@@ -139,8 +137,6 @@ export default function MusicTrackLane({
   onAutoEdgeStart, // (e) — 자동 배치의 맨 앞·맨 뒤 가장자리(data-edge)
   onVolumeDragStart,
   onVolumeChange = null, // (volume) => void — 조각이 여럿일 때 이름 옆 가로 막대로 트랙 볼륨 조절
-  isMuted = false,
-  onToggleMute = null,
   resetLabel = "", // 있으면 되돌리기 버튼(자동: "끝 자동 맞춤", 편집됨: "자동 배치로")
   resetTitle = "",
   onReset,
@@ -355,7 +351,6 @@ export default function MusicTrackLane({
             · {backgroundName || "배경음악"} · {TimeFormat.precise(trackStart)}~{TimeFormat.precise(trackEnd)} · 조각 {layout.length}개 · 볼륨{" "}
             {ClipGain.label(volume)}
           </span>
-          {onToggleMute && <MuteButton muted={isMuted} onToggle={onToggleMute} label="배경음악 트랙" tone="sky" />}
           {hasPieceVolumes && onVolumeChange && (
             <label className="ml-1 inline-flex items-center gap-1 font-medium text-sky-700" title="배경음악 트랙 전체 볼륨 — 조각 볼륨에 함께 곱해져요">
               트랙 볼륨
@@ -462,7 +457,7 @@ export default function MusicTrackLane({
         </span>
       </div>
 
-      <div ref={laneRef} className={`relative h-16 transition-opacity ${isMuted ? "opacity-40" : ""}`}>
+      <div ref={laneRef} className="relative h-16">
         {layout.map((entry) => {
           const { piece, start, end } = entry;
           const length = end - start;

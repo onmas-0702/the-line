@@ -28,8 +28,7 @@ import {
 import LevelMeterView from "@/components/studio/LevelMeterView";
 import MusicTrackLane from "@/components/studio/MusicTrackLane";
 import WaveformCanvas from "@/components/studio/WaveformCanvas";
-import { BackgroundMixer, ClipGain, TimeFormat, TrackMute, WaveformAnalyzer } from "@/lib/audio";
-import MuteButton from "@/components/studio/MuteButton";
+import { BackgroundMixer, ClipGain, TimeFormat, WaveformAnalyzer } from "@/lib/audio";
 import { MusicClip } from "@/lib/audioProject";
 import { FileDrop, FileKind } from "@/lib/fileDrop";
 import {
@@ -104,7 +103,6 @@ export default function ClipTimeline({
   const [musicSelectedId, setMusicSelectedId] = useState(null); // 고른 배경음악 조각(목소리 클립을 고르면 풀림)
   const [frozenAxis, setFrozenAxis] = useState(null); // 끄는 동안 화면 배율 고정(초)
   const [isFileOver, setIsFileOver] = useState(false);
-  const [mute, setMute] = useState(TrackMute.NONE); // 트랙 뮤트(미리듣기만 — 저장에는 영향 없음)
   const trackRowRef = useRef(null);
   const railRef = useRef(null);
   const zoomWrapperRef = useRef(null);
@@ -158,15 +156,15 @@ export default function ClipTimeline({
 
   // 실제로 재생되는 소리 — 디코딩한 클립 + 빈 공간의 진짜 무음, 배경음악이 있으면 저장과 같은 믹스.
   const musicKey = JSON.stringify(musicClip || {});
-  const previewBuffer = useMemo(
-    () =>
-      mute.previewBuffer(new Timeline(segments).toBuffer(), backgroundBuffer, {
-        musicVolume: backgroundVolume,
-        voiceOffsetSeconds,
-        musicClip: JSON.parse(musicKey),
-      }),
-    [segments, backgroundBuffer, backgroundVolume, voiceOffsetSeconds, musicKey, mute]
-  );
+  const previewBuffer = useMemo(() => {
+    const voice = new Timeline(segments).toBuffer();
+    if (!voice) return null;
+    if (!backgroundBuffer) return voice;
+    return BackgroundMixer.fromSettings({ musicVolume: backgroundVolume, voiceOffsetSeconds, musicClip: JSON.parse(musicKey) }).mix(
+      voice,
+      backgroundBuffer
+    );
+  }, [segments, backgroundBuffer, backgroundVolume, voiceOffsetSeconds, musicKey]);
 
   // 배경음악 곡 한 바퀴의 음량 막대(1초에 8개) — 배경음악 클립 상자에 곡 위치대로 골라 그립니다.
   const songPeaks = useMemo(
@@ -656,7 +654,7 @@ export default function ClipTimeline({
     const timer = setTimeout(() => playFrom(playheadSeconds), 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [backgroundVolume, mute]);
+  }, [backgroundVolume]);
 
   // 확대 배율이 바뀌면 재생선이 있던 곳이 화면 가운데로 오게 스크롤을 맞춥니다.
   useEffect(() => {
@@ -796,9 +794,6 @@ export default function ClipTimeline({
           <div className="h-5">
             <span className="sticky left-0 inline-flex items-center gap-1 text-[10px] font-semibold text-night-700">
               <AudioLines size={11} /> 오디오 트랙
-              {segments.length > 0 && (
-                <MuteButton muted={mute.voice} onToggle={() => setMute((m) => m.toggle("voice"))} label="오디오 트랙" />
-              )}
             </span>
           </div>
           <div
@@ -806,7 +801,7 @@ export default function ClipTimeline({
             onClick={handleRowClick}
             onMouseMove={handleRowMouseMove}
             onMouseLeave={() => setCutHover(null)}
-            className={`relative h-32 overflow-hidden rounded-lg bg-stone-50/60 transition-opacity ${mute.voice ? "opacity-40" : ""}`}
+            className="relative h-32 overflow-hidden rounded-lg bg-stone-50/60"
             style={{ cursor: isCut ? "crosshair" : undefined }}
           >
             {hasBackground && hasAnything && (
@@ -1063,8 +1058,6 @@ export default function ClipTimeline({
                   }
                   onReset={isMusicArranged ? resetMusicArrangement : resetMusicEnd}
                   VolumeBadge={VolumeBadge}
-                  isMuted={mute.music}
-                  onToggleMute={() => setMute((m) => m.toggle("music"))}
                 />
               );
             }
