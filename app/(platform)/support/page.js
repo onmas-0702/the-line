@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronDown, Mail, Phone } from "lucide-react";
+import BackButton from "@/components/common/BackButton";
 import { SupportContact, SupportFaq } from "@/lib/support";
 
 export const metadata = {
@@ -11,6 +12,7 @@ export const metadata = {
 export default function SupportPage() {
   return (
     <div className="space-y-6">
+      <BackButton fallbackHref="/" />
       <div>
         <h1 className="text-lg font-semibold text-stone-900">고객지원</h1>
         <p className="mt-1 text-sm text-stone-500">궁금한 점이나 불편한 점이 있으면 언제든 알려 주세요.</p>

@@ -1,8 +1,12 @@
-// 이용약관·개인정보처리방침 화면 — 문서 내용(lib/legalDocuments.js의 LegalDocument)을 그대로 그립니다.
+// 이용약관(환불정책 포함)·개인정보처리방침 화면 — 문서 내용(lib/legalDocuments.js의 LegalDocument)을 그대로 그립니다.
+// 맨 위 이전 버튼, 아래 메뉴(홈)는 PlatformChrome이 그립니다(마이 페이지와 같은 구조).
+
+import BackButton from "@/components/common/BackButton";
 
 export default function LegalArticle({ document: doc }) {
   return (
-    <article className="mx-auto max-w-2xl space-y-6 py-6 text-sm leading-relaxed text-stone-700">
+    <article className="mx-auto max-w-2xl space-y-6 text-sm leading-relaxed text-stone-700">
+      <BackButton fallbackHref="/" />
       <header className="space-y-1.5">
         <h1 className="text-xl font-semibold text-stone-900">{doc.title}</h1>
         <p className="text-xs text-stone-400">시행일 {doc.effectiveDate}</p>
