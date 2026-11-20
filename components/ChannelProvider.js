@@ -13,6 +13,7 @@ import { GalleryRepository } from "@/lib/gallery";
 import { BannerRepository } from "@/lib/banners";
 import { AudioDraftRepository } from "@/lib/audioDraft";
 import { LibraryRepository } from "@/lib/library";
+import { CommentReportRepository, UserBlockRepository } from "@/lib/moderation";
 import { SiteSettingsRepository } from "@/lib/siteSettings";
 
 const ChannelContext = createContext(null);
@@ -30,6 +31,8 @@ export default function ChannelProvider({ channel: channelData, children }) {
         channels: new ChannelRepository(),
         library: new LibraryRepository(scope),
         comments: new CommentRepository(scope),
+        reports: new CommentReportRepository(scope),
+        blocks: new UserBlockRepository(), // 차단은 채널과 상관없이 사람 단위
         marks: new AudioMarkRepository(scope),
         journal: new JournalRepository(scope),
         notices: new NoticeRepository(scope),

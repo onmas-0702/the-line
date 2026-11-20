@@ -33,6 +33,15 @@
         "3001"
       ],
       "port": 3001
+    },
+    {
+      "name": "next-prod-3002",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "npx next build && npx next start -p 3002"
+      ],
+      "port": 3002
     }
   ]
 }

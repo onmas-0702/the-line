@@ -44,6 +44,10 @@ export default function PlatformFooter() {
         <Link href="/terms#refund" className="hover:text-stone-800 hover:underline">
           환불정책
         </Link>
+        <span aria-hidden className="text-stone-300">|</span>
+        <Link href="/support" className="hover:text-stone-800 hover:underline">
+          고객지원
+        </Link>
       </nav>
 
       <div className="mt-3 space-y-1">

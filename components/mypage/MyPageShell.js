@@ -4,16 +4,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bookmark, Lock, Megaphone, MessageCircle, NotebookPen, UserRound } from "lucide-react";
+import { Bookmark, CreditCard, Lock, Megaphone, MessageCircle, NotebookPen, ShieldCheck, UserRound } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import { useViewer } from "@/components/ViewerProvider";
 import { MemberTier } from "@/lib/access";
 import { MyPageMenu } from "@/lib/myPage";
 
 // 섹션 key → 아이콘. 새 섹션을 추가하면 여기에도 아이콘을 하나 넣어주세요(없으면 기본 아이콘).
-const ICONS = { notices: Megaphone, saved: Bookmark, journal: NotebookPen, community: MessageCircle };
+const ICONS = { notices: Megaphone, saved: Bookmark, journal: NotebookPen, community: MessageCircle, membership: CreditCard };
 
-export default function MyPageShell({ children }) {
+/** isAdmin: 관리자(운영사 채널 소유자)면 관리자 페이지로 가는 버튼을 보여 줍니다(서버 레이아웃이 판단). */
+export default function MyPageShell({ children, isAdmin = false }) {
   const viewer = useViewer();
   const pathname = usePathname();
   const tabs = [
@@ -30,7 +31,15 @@ export default function MyPageShell({ children }) {
   return (
     <div className="space-y-5">
       <BackButton fallbackHref="/" />
-      <div>
+      <div className="relative">
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="absolute right-0 top-0 flex items-center gap-1 rounded-full bg-night-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-night-800"
+          >
+            <ShieldCheck size={13} /> 관리자 페이지
+          </Link>
+        )}
         <h1 className="text-lg font-semibold text-stone-900">{MyPageMenu.TITLE}</h1>
         <p className="mt-0.5 text-sm text-stone-500">
           {viewer.displayName}님 · {viewer.isChannelStaff ? "채널 운영자" : MemberTier.label(viewer.tier)}

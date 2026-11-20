@@ -5,13 +5,14 @@
 // 저장은 채널 저장소(useChannel().repos)가 합니다.
 
 import { useEffect, useState } from "react";
-import { Bookmark, Heart, MessageCircleMore, NotebookPen, Send, Trash2 } from "lucide-react";
+import { Bookmark, Flag, Heart, MessageCircleMore, MoreHorizontal, NotebookPen, Send, Trash2, UserX } from "lucide-react";
 import { useChannel } from "@/components/ChannelProvider";
 import GatePrompt from "@/components/common/GatePrompt";
 import ShareArrowIcon from "@/components/content/ShareArrowIcon";
 import { useViewer } from "@/components/ViewerProvider";
 import { AccessPolicy, FeatureGate } from "@/lib/access";
 import { AudioMarkKind, AudioMarks, CommentDraft, CommentText, JournalDraft } from "@/lib/engagement";
+import { BlockList, ReportDraft, ReportReason } from "@/lib/moderation";
 import { ContentShare } from "@/lib/playback";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
@@ -51,8 +52,22 @@ const Panel = Object.freeze({ JOURNAL: "journal", COMMENTS: "comments" });
 export default function ContentEngagement({ item, isImmersive }) {
   const tone = new Tone(isImmersive);
   const { repos } = useChannel();
+  const viewer = useViewer();
   const [panel, setPanel] = useState(null); // 펼친 것: 감상일기 / 댓글 / 없음
   const [comments, setComments] = useState([]);
+  const [blocks, setBlocks] = useState(BlockList.EMPTY); // 내가 차단한 사람들 — 그 댓글은 안 보임
+  const shownComments = blocks.visible(comments);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !viewer.userId) return undefined;
+    let cancelled = false;
+    repos.blocks.blockListFor(viewer.userId).then((list) => {
+      if (!cancelled) setBlocks(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [repos, viewer.userId]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
@@ -69,9 +84,18 @@ export default function ContentEngagement({ item, isImmersive }) {
 
   return (
     <div className="space-y-4 px-2 pb-4">
-      <ActionIcons item={item} tone={tone} panel={panel} commentCount={comments.length} onToggle={toggle} />
+      <ActionIcons item={item} tone={tone} panel={panel} commentCount={shownComments.length} onToggle={toggle} />
       {panel === Panel.JOURNAL && <JournalPanel item={item} tone={tone} />}
-      {panel === Panel.COMMENTS && <CommentPanel item={item} tone={tone} comments={comments} onChange={setComments} />}
+      {panel === Panel.COMMENTS && (
+        <CommentPanel
+          item={item}
+          tone={tone}
+          comments={shownComments}
+          allComments={comments}
+          onChange={setComments}
+          onBlocked={(userId) => setBlocks((list) => list.with(userId))}
+        />
+      )}
     </div>
   );
 }
@@ -258,13 +282,14 @@ function JournalPanel({ item, tone }) {
   );
 }
 
-function CommentPanel({ item, tone, comments, onChange: setComments }) {
+function CommentPanel({ item, tone, comments, allComments, onChange: setComments, onBlocked }) {
   const viewer = useViewer();
   const { channel, repos } = useChannel();
   const gate = FeatureGate.check(viewer, Feature.COMMENT);
   const [draft, setDraft] = useState(new CommentDraft());
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(""); // 신고·차단 뒤 안내
 
   async function submit(e) {
     e.preventDefault();
@@ -273,13 +298,24 @@ function CommentPanel({ item, tone, comments, onChange: setComments }) {
     const result = await repos.comments.add({ audioId: item.id, userId: viewer.userId, draft });
     setBusy(false);
     if (!result.ok) return setError(result.reason);
-    setComments([result.comment, ...comments]);
+    setComments([result.comment, ...allComments]);
     setDraft(new CommentDraft());
   }
 
   async function remove(comment) {
     const result = await repos.comments.remove(comment.id);
-    if (result.ok) setComments(comments.filter((c) => c.id !== comment.id));
+    if (result.ok) setComments(allComments.filter((c) => c.id !== comment.id));
+  }
+
+  /** 신고한 댓글은 내 화면에서 바로 뺍니다. */
+  function reported(comment) {
+    setComments(allComments.filter((c) => c.id !== comment.id));
+    setNotice("신고했어요. 운영진이 확인한 뒤 처리할게요.");
+  }
+
+  function blocked(comment) {
+    onBlocked(comment.userId);
+    setNotice(`${comment.authorName}님을 차단했어요. 이제 이 분의 댓글이 보이지 않아요. (마이 페이지 > 계정에서 풀 수 있어요)`);
   }
 
   return (
@@ -322,28 +358,183 @@ function CommentPanel({ item, tone, comments, onChange: setComments }) {
           <GatePrompt gate={gate} action="댓글 남기기" tone={tone.isImmersive ? "dark" : "light"} />
         )}
 
+        {notice && (
+          <p role="status" className={`mt-3 rounded-lg px-3 py-2 text-xs ${tone.isImmersive ? "bg-white/15 text-white" : "bg-stone-100 text-stone-600"}`}>
+            {notice}
+          </p>
+        )}
+
         <ul className="mt-3 space-y-2.5">
           {comments.map((comment) => (
-            <li key={comment.id} className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className={`text-xs ${tone.muted}`}>
-                  <span className={`font-medium ${tone.text}`}>{comment.authorName}</span> · {comment.relativeTime}
-                </p>
-                <p className={`mt-0.5 break-words text-sm ${tone.text}`}>
-                  <CommentBody body={comment.body} isImmersive={tone.isImmersive} />
-                </p>
-              </div>
-              {AccessPolicy.canDeleteComment(viewer, channel, comment) && (
-                <button type="button" onClick={() => remove(comment)} className={`shrink-0 p-1 ${tone.muted}`} aria-label="지우기">
-                  <Trash2 size={13} strokeWidth={1.5} />
-                </button>
-              )}
-            </li>
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              tone={tone}
+              canDelete={AccessPolicy.canDeleteComment(viewer, channel, comment)}
+              canReport={AccessPolicy.canReportComment(viewer, comment)}
+              onRemove={() => remove(comment)}
+              onReported={() => reported(comment)}
+              onBlocked={() => blocked(comment)}
+            />
           ))}
           {comments.length === 0 && <li className={`text-xs ${tone.muted}`}>첫 댓글을 남겨주세요.</li>}
         </ul>
       </div>
     </section>
+  );
+}
+
+/** 댓글 한 줄 — 남의 댓글에는 ⋯ 메뉴(신고하기·차단하기). */
+function CommentItem({ comment, tone, canDelete, canReport, onRemove, onReported, onBlocked }) {
+  const [mode, setMode] = useState(null); // null | "menu" | "report" | "block"
+  const close = () => setMode(null);
+  const menuItem = `flex w-full items-center gap-2 px-3 py-2 text-left text-xs ${tone.isImmersive ? "text-white hover:bg-white/10" : "text-stone-700 hover:bg-stone-50"}`;
+  return (
+    <li>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className={`text-xs ${tone.muted}`}>
+            <span className={`font-medium ${tone.text}`}>{comment.authorName}</span> · {comment.relativeTime}
+          </p>
+          <p className={`mt-0.5 break-words text-sm ${tone.text}`}>
+            <CommentBody body={comment.body} isImmersive={tone.isImmersive} />
+          </p>
+        </div>
+        <div className="relative flex shrink-0 items-center">
+          {canDelete && (
+            <button type="button" onClick={onRemove} className={`p-1 ${tone.muted}`} aria-label="지우기">
+              <Trash2 size={13} strokeWidth={1.5} />
+            </button>
+          )}
+          {canReport && (
+            <button
+              type="button"
+              onClick={() => setMode(mode === "menu" ? null : "menu")}
+              className={`p-1 ${tone.muted}`}
+              aria-label="댓글 더 보기"
+              aria-expanded={mode === "menu"}
+              title="신고·차단"
+            >
+              <MoreHorizontal size={15} strokeWidth={1.5} />
+            </button>
+          )}
+          {mode === "menu" && (
+            <div
+              className={`absolute right-0 top-7 z-20 w-36 overflow-hidden rounded-xl shadow-lg ${
+                tone.isImmersive ? "bg-stone-900/95 ring-1 ring-white/15" : "bg-white ring-1 ring-stone-200"
+              }`}
+            >
+              <button type="button" className={menuItem} onClick={() => setMode("report")}>
+                <Flag size={13} strokeWidth={1.75} /> 신고하기
+              </button>
+              <button type="button" className={menuItem} onClick={() => setMode("block")}>
+                <UserX size={13} strokeWidth={1.75} /> 이 사람 차단하기
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      {mode === "report" && <ReportForm comment={comment} tone={tone} onCancel={close} onDone={onReported} />}
+      {mode === "block" && <BlockConfirm comment={comment} tone={tone} onCancel={close} onDone={onBlocked} />}
+    </li>
+  );
+}
+
+/** 신고 — 사유 고르기(필수) + 덧붙이는 말(선택). */
+function ReportForm({ comment, tone, onCancel, onDone }) {
+  const viewer = useViewer();
+  const { repos } = useChannel();
+  const [draft, setDraft] = useState(() => new ReportDraft());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!draft.isReady || busy) return;
+    setBusy(true);
+    setError("");
+    const result = await repos.reports.report({ commentId: comment.id, reporterId: viewer.userId, draft });
+    setBusy(false);
+    if (result.ok) onDone();
+    else setError(result.reason);
+  }
+
+  return (
+    <form onSubmit={submit} className={`mt-2 space-y-2 rounded-xl p-3 ${tone.isImmersive ? "bg-white/10" : "bg-stone-50"}`}>
+      <p className={`text-xs font-medium ${tone.text}`}>어떤 문제가 있나요?</p>
+      <div className="flex flex-wrap gap-1.5">
+        {ReportReason.ALL.map((reason) => (
+          <button
+            key={reason.key}
+            type="button"
+            onClick={() => setDraft(draft.with({ reason: reason.key }))}
+            aria-pressed={draft.reason === reason.key}
+            className={`rounded-full px-2.5 py-1 text-xs transition ${tone.chip(draft.reason === reason.key)}`}
+          >
+            {reason.label}
+          </button>
+        ))}
+      </div>
+      <input
+        value={draft.detail}
+        onChange={(e) => setDraft(draft.with({ detail: e.target.value }))}
+        placeholder="덧붙일 말(선택)"
+        className={`w-full rounded-lg border px-3 py-1.5 text-xs outline-none ${tone.input}`}
+      />
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      <div className="flex justify-end gap-1.5">
+        <button type="button" onClick={onCancel} className={`rounded-full px-3 py-1 text-xs ${tone.chip(false)}`}>
+          취소
+        </button>
+        <button
+          type="submit"
+          disabled={!draft.isReady || busy}
+          className="rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+        >
+          {busy ? "신고하는 중…" : "신고하기"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** 차단 확인 — 차단하면 이 사람의 댓글이 내 화면에서 모두 빠집니다. */
+function BlockConfirm({ comment, tone, onCancel, onDone }) {
+  const viewer = useViewer();
+  const { repos } = useChannel();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function confirm() {
+    setBusy(true);
+    setError("");
+    const result = await repos.blocks.block(viewer.userId, comment.userId);
+    setBusy(false);
+    if (result.ok) onDone();
+    else setError(result.reason);
+  }
+
+  return (
+    <div className={`mt-2 space-y-2 rounded-xl p-3 ${tone.isImmersive ? "bg-white/10" : "bg-stone-50"}`}>
+      <p className={`text-xs ${tone.text}`}>
+        <b className="font-semibold">{comment.authorName}</b>님을 차단할까요? 이 분의 댓글이 모두 보이지 않게 돼요. 마이 페이지 &gt; 계정에서
+        언제든 풀 수 있어요.
+      </p>
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      <div className="flex justify-end gap-1.5">
+        <button type="button" onClick={onCancel} className={`rounded-full px-3 py-1 text-xs ${tone.chip(false)}`}>
+          취소
+        </button>
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={busy}
+          className="rounded-full bg-stone-800 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+        >
+          {busy ? "차단하는 중…" : "차단하기"}
+        </button>
+      </div>
+    </div>
   );
 }
 

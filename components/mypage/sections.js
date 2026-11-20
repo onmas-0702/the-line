@@ -7,6 +7,7 @@ import AccountSection from "@/components/mypage/AccountSection";
 import CommunitySection from "@/components/mypage/CommunitySection";
 import GallerySection from "@/components/mypage/GallerySection";
 import JournalSection from "@/components/mypage/JournalSection";
+import MembershipSection from "@/components/mypage/MembershipSection";
 import NotificationsSection from "@/components/mypage/NotificationsSection";
 import NoticesSection from "@/components/mypage/NoticesSection";
 import SavedSection from "@/components/mypage/SavedSection";
@@ -18,5 +19,6 @@ export const MY_PAGE_SECTION_VIEWS = Object.freeze({
   journal: JournalSection,
   gallery: GallerySection,
   community: CommunitySection,
+  membership: MembershipSection,
   account: AccountSection,
 });

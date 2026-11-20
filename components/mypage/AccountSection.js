@@ -1,13 +1,15 @@
 "use client";
 
-// 계정 — 내 로그인 정보와 회원 탈퇴. 탈퇴 규칙·안내 문구는 lib/account.js(AccountDeletion).
+// 계정 — 내 로그인 정보, 차단한 사람(lib/moderation.js), 회원 탈퇴(lib/account.js의 AccountDeletion).
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, UserRound } from "lucide-react";
+import { AlertTriangle, CheckCircle2, UserRound, UserX } from "lucide-react";
 import { useViewer } from "@/components/ViewerProvider";
 import { AccountDeletion } from "@/lib/account";
 import { PLATFORM_INFO } from "@/lib/mockData";
+import { UserBlockRepository } from "@/lib/moderation";
+import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function AccountSection() {
   const viewer = useViewer();
@@ -27,8 +29,65 @@ export default function AccountSection() {
         </div>
       </section>
 
+      {isSupabaseConfigured && viewer.userId && <BlockedUsersCard userId={viewer.userId} />}
+
       <DeleteAccountCard onDeleted={() => setIsDeleted(true)} />
     </div>
+  );
+}
+
+/** 차단한 사람 — 댓글에서 차단한 회원 목록과 차단 풀기. */
+function BlockedUsersCard({ userId }) {
+  const [repo] = useState(() => new UserBlockRepository());
+  const [blocks, setBlocks] = useState(null); // null = 불러오는 중
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    repo.listMine(userId).then((result) => {
+      if (cancelled) return;
+      setBlocks(result.blocks);
+      setError(result.ok ? "" : result.reason);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [repo, userId]);
+
+  async function unblock(target) {
+    const result = await repo.unblock(userId, target.userId);
+    if (!result.ok) return setError(result.reason);
+    setBlocks((list) => list.filter((b) => b.userId !== target.userId));
+  }
+
+  return (
+    <section className="rounded-2xl border border-stone-200 bg-white p-4">
+      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-stone-900">
+        <UserX size={15} className="text-stone-500" /> 차단한 사람
+      </h2>
+      <p className="mt-1 text-xs leading-relaxed text-stone-500">차단한 분의 댓글은 내 화면에 보이지 않아요. 댓글의 ⋯ 메뉴에서 차단할 수 있어요.</p>
+      {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+      {blocks === null ? (
+        <p className="mt-3 text-xs text-stone-400">불러오는 중…</p>
+      ) : blocks.length === 0 ? (
+        <p className="mt-3 text-xs text-stone-400">차단한 사람이 없어요.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-stone-100">
+          {blocks.map((b) => (
+            <li key={b.userId} className="flex items-center justify-between py-2">
+              <span className="truncate text-sm text-stone-800">{b.name}</span>
+              <button
+                type="button"
+                onClick={() => unblock(b)}
+                className="shrink-0 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-50"
+              >
+                차단 풀기
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

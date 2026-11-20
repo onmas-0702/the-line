@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import CommunityPanel from "@/components/studio/CommunityPanel";
+import ReportsPanel from "@/components/studio/ReportsPanel";
 import BannerStudioPanel from "@/components/studio/BannerStudioPanel";
 import GalleryStudioPanel from "@/components/studio/GalleryStudioPanel";
 import StaffPanel from "@/components/studio/StaffPanel";
@@ -194,6 +195,8 @@ export default function RecordPage() {
         <BannerStudioPanel />
       ) : mainTab === "community" ? (
         <CommunityPanel />
+      ) : mainTab === "reports" ? (
+        <ReportsPanel />
       ) : mainTab === "design" ? (
         <DesignSkinPanel />
       ) : mainTab === "manage" ? (
