@@ -556,7 +556,7 @@ export default function ClipTimeline({
   }
 
   // 배경음악 클립 가장자리 — 앞 끝을 끌면 음악이 시작하는 곳과 곡 안 시작 위치가 함께 움직이고(앞부분 트리밍),
-  // 뒤 끝을 끌면 음악이 끝나는 곳이 바뀝니다(곡보다 길게 당기면 반복해서 이어지고, 끝에서 3초 페이드아웃).
+  // 뒤 끝을 끌면 음악이 끝나는 곳이 바뀝니다(곡보다 길게 당기면 반복해서 이어지고, 끝에서 4초 페이드아웃).
   function handleMusicEdgeStart(e) {
     const edge = e.currentTarget.dataset.edge;
     const song = backgroundBuffer?.duration || 0;
