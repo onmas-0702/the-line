@@ -6,10 +6,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, ImagePlus, Pencil, Trash2 } from "lucide-react";
+import { Crop, Eye, EyeOff, ImagePlus, Pencil, Trash2 } from "lucide-react";
 import { useChannel } from "@/components/ChannelProvider";
-import { GalleryUpload } from "@/lib/gallery";
-import { ImageSpecError } from "@/lib/imageSpec";
+import { GalleryUpload, WallpaperReframe } from "@/lib/gallery";
+import WallpaperFramePicker from "@/components/studio/WallpaperFramePicker";
+import { CropFocus, ImageSpecError } from "@/lib/imageSpec";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 const INPUT = "w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-night-600";
@@ -22,12 +23,14 @@ function useUploadPreviews(upload) {
     const next = {
       thumb: URL.createObjectURL(upload.thumb),
       wallpaper: URL.createObjectURL(upload.wallpaper),
+      display: URL.createObjectURL(upload.display),
     };
     const timer = setTimeout(() => setUrls(next), 0);
     return () => {
       clearTimeout(timer);
       URL.revokeObjectURL(next.thumb);
       URL.revokeObjectURL(next.wallpaper);
+      URL.revokeObjectURL(next.display);
     };
   }, [upload]);
   return upload ? urls : null;
@@ -40,8 +43,20 @@ function UploadCard({ onUploaded }) {
   const [description, setDescription] = useState("");
   const [isPreparing, setIsPreparing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isReframing, setIsReframing] = useState(false);
   const [error, setError] = useState("");
   const previews = useUploadPreviews(upload);
+
+  async function moveWallpaper(focus) {
+    setIsReframing(true);
+    try {
+      setUpload(await upload.withWallpaperFocus(focus));
+    } catch {
+      setError("배경 위치를 바꾸지 못했어요.");
+    } finally {
+      setIsReframing(false);
+    }
+  }
 
   async function pick(e) {
     const file = e.target.files?.[0];
@@ -125,6 +140,16 @@ function UploadCard({ onUploaded }) {
               원본 {upload.width}×{upload.height}px
             </p>
           </div>
+          {previews && (
+            <WallpaperFramePicker
+              imageUrl={previews.display}
+              width={upload.width}
+              height={upload.height}
+              focus={upload.wallpaperFocus}
+              onChange={moveWallpaper}
+              disabled={isSaving || isReframing}
+            />
+          )}
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" className={INPUT} />
           <textarea
             value={description}
@@ -145,7 +170,7 @@ function UploadCard({ onUploaded }) {
             <button
               type="button"
               onClick={save}
-              disabled={isSaving}
+              disabled={isSaving || isReframing}
               className="rounded-full bg-night-700 px-4 py-2 text-sm font-medium text-white hover:bg-night-800 disabled:bg-stone-300"
             >
               {isSaving ? "올리는 중…" : "갤러리에 올리기"}
@@ -161,6 +186,7 @@ function UploadCard({ onUploaded }) {
 function ImageRow({ image, onChanged, onRemoved }) {
   const { repos } = useChannel();
   const [isEditing, setIsEditing] = useState(false);
+  const [isFraming, setIsFraming] = useState(false);
   const [title, setTitle] = useState(image.title);
   const [description, setDescription] = useState(image.description);
   const [busy, setBusy] = useState(false);
@@ -216,6 +242,9 @@ function ImageRow({ image, onChanged, onRemoved }) {
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <button type="button" onClick={() => setIsFraming((v) => !v)} disabled={busy} className="rounded-full p-1.5 text-stone-500 hover:bg-stone-100" aria-label="모바일 배경 위치" title="모바일 배경 위치">
+            <Crop size={15} />
+          </button>
           <button type="button" onClick={() => setIsEditing((v) => !v)} disabled={busy} className="rounded-full p-1.5 text-stone-500 hover:bg-stone-100" aria-label="제목 수정">
             <Pencil size={15} />
           </button>
@@ -241,8 +270,74 @@ function ImageRow({ image, onChanged, onRemoved }) {
           </div>
         </div>
       )}
+      {isFraming && <ReframeEditor image={image} onClose={() => setIsFraming(false)} />}
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </li>
+  );
+}
+
+/** 이미 올린 이미지의 모바일 배경 위치 다시 잡기 — 원본을 불러와 새 위치로 잘라 배경이미지만 바꿉니다. */
+function ReframeEditor({ image, onClose }) {
+  const { repos } = useChannel();
+  const [reframe, setReframe] = useState(null);
+  const [focus, setFocus] = useState(CropFocus.CENTER);
+  const [status, setStatus] = useState({ busy: true, message: "원본을 불러오는 중…", error: "" });
+
+  useEffect(() => {
+    let alive = true;
+    WallpaperReframe.open(repos.gallery, image).then((result) => {
+      if (!alive) return;
+      if (result.ok) {
+        setReframe(result.reframe);
+        setStatus({ busy: false, message: "", error: "" });
+      } else setStatus({ busy: false, message: "", error: `불러오지 못했어요: ${result.reason}` });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [repos, image]);
+
+  async function save() {
+    setStatus({ busy: true, message: "", error: "" });
+    try {
+      const blob = await reframe.render(focus);
+      const result = await repos.gallery.replaceWallpaper(image, blob);
+      if (!result.ok) return setStatus({ busy: false, message: "", error: `저장하지 못했어요: ${result.reason}` });
+      setStatus({ busy: false, message: "모바일 배경 위치를 바꿨어요.", error: "" });
+    } catch {
+      setStatus({ busy: false, message: "", error: "배경이미지를 만들지 못했어요." });
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-2 rounded-xl bg-stone-50 p-3">
+      <p className="text-xs font-medium text-stone-700">모바일 배경 위치</p>
+      {reframe && (
+        <WallpaperFramePicker
+          imageUrl={image.displayUrl}
+          width={image.width}
+          height={image.height}
+          focus={focus}
+          onChange={setFocus}
+          disabled={status.busy}
+        />
+      )}
+      {status.message && <p className="text-xs text-stone-500">{status.message}</p>}
+      {status.error && <p className="text-xs text-red-600">{status.error}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onClose} className="rounded-full border border-stone-300 px-3 py-1.5 text-xs text-stone-600">
+          닫기
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          disabled={!reframe || status.busy}
+          className="rounded-full bg-night-700 px-3 py-1.5 text-xs font-medium text-white disabled:bg-stone-300"
+        >
+          {status.busy && reframe ? "저장 중…" : "이 위치로 저장"}
+        </button>
+      </div>
+    </div>
   );
 }
 
