@@ -1,19 +1,29 @@
 "use client";
 
-// 모바일 배경 위치 고르기 — 원본 위에 휴대폰 세로 틀(1170×2532)을 띄우고, 틀을 끌거나 아래 막대로 옮겨
-// 배경이미지로 잘라낼 부분을 고릅니다. 틀 밖은 어둡게 보여요. 계산은 ImageSpec.cropRect·CropFocus가 합니다.
+// 잘라낼 위치 고르기 — 원본 위에 규격 비율의 틀(기본: 휴대폰 세로 1170×2532)을 띄우고, 틀을 끌거나 아래 막대로
+// 옮겨 잘라낼 부분을 고릅니다. 틀 밖은 어둡게 보여요. 계산은 ImageSpec.cropRect·CropFocus가 합니다.
+// 갤러리 모바일 배경, 콘텐츠 배경이미지(정사각형)가 함께 씁니다(spec·label·hint로 구분).
 // 틀은 손을 떼는 순간 onChange(focus)로 알려 줍니다(그때 배경이미지를 다시 자름).
 
 import { useRef, useState } from "react";
 import { GalleryUpload } from "@/lib/gallery";
 import { CropFocus } from "@/lib/imageSpec";
 
-export default function WallpaperFramePicker({ imageUrl, width, height, focus = CropFocus.CENTER, onChange, disabled = false }) {
+export default function WallpaperFramePicker({
+  imageUrl,
+  width,
+  height,
+  focus = CropFocus.CENTER,
+  onChange,
+  disabled = false,
+  spec = GalleryUpload.WALLPAPER,
+  label = "모바일 배경",
+  hint = "흰 틀을 끌어 휴대폰 배경으로 쓸 부분을 골라 주세요.",
+}) {
   const boxRef = useRef(null);
   const dragRef = useRef(null);
   const [draft, setDraft] = useState(null); // 끄는 중인 위치(손을 떼면 null)
   const current = draft || focus;
-  const spec = GalleryUpload.WALLPAPER;
   const crop = spec.cropRect(width, height, current);
   // 틀이 움직일 수 있는 방향 — 가로 사진은 좌우, 세로로 긴 사진은 위아래
   const horizontal = crop.width < width;
@@ -70,7 +80,7 @@ export default function WallpaperFramePicker({ imageUrl, width, height, focus = 
           style={{ left: pct(crop.x, width), top: pct(crop.y, height), width: pct(crop.width, width), height: pct(crop.height, height) }}
         >
           <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-black/50 px-2 py-0.5 text-[11px] text-white">
-            모바일 배경
+            {label}
           </span>
         </div>
       </div>
@@ -99,12 +109,12 @@ export default function WallpaperFramePicker({ imageUrl, width, height, focus = 
               onChange?.(horizontal ? focus.withX(v) : focus.withY(v));
             }}
             className="flex-1 accent-night-700"
-            aria-label="모바일 배경 위치"
+            aria-label={`${label} 위치`}
           />
           <span className="w-10 shrink-0 text-right text-[11px] text-stone-400">{horizontal ? "오른쪽" : "아래"}</span>
         </div>
       ) : null}
-      <p className="text-[11px] text-stone-400">흰 틀을 끌어 휴대폰 배경으로 쓸 부분을 골라 주세요.</p>
+      <p className="text-[11px] text-stone-400">{hint}</p>
     </div>
   );
 }

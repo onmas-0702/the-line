@@ -9,6 +9,7 @@ import { ImagePlus, Library, RotateCcw, X } from "lucide-react";
 import { useChannel } from "@/components/ChannelProvider";
 import { useViewer } from "@/components/ViewerProvider";
 import { AccessPolicy } from "@/lib/access";
+import WallpaperFramePicker from "@/components/studio/WallpaperFramePicker";
 import { ContentCoverChoice } from "@/lib/contentCover";
 import { ImageSpec, ImageSpecError } from "@/lib/imageSpec";
 import { AssetKind } from "@/lib/library";
@@ -144,7 +145,18 @@ export default function ContentCoverPicker({ value, onChange, disabled = false }
     setError("");
     setIsProcessing(true);
     try {
-      onChange(ContentCoverChoice.fromNewImage(file, await SPEC.process(file)));
+      onChange(await ContentCoverChoice.fromNewImage(file));
+    } catch (err) {
+      setError(err instanceof ImageSpecError ? err.message : "이미지를 처리하지 못했어요.");
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  async function moveCover(focus) {
+    setIsProcessing(true);
+    try {
+      onChange(await value.withFocus(focus));
     } catch (err) {
       setError(err instanceof ImageSpecError ? err.message : "이미지를 처리하지 못했어요.");
     } finally {
@@ -202,6 +214,21 @@ export default function ContentCoverPicker({ value, onChange, disabled = false }
           카드 표지·재생 화면에 쓰여요. 정사각형으로 맞춰 보여주고, 올린 원본은 그대로 라이브러리에
           보관돼서 다음 콘텐츠에서도 다시 고를 수 있어요.
         </p>
+        {value.canMove && (
+          <div className="max-w-sm">
+            <WallpaperFramePicker
+              imageUrl={value.sourceUrl}
+              width={value.sourceWidth}
+              height={value.sourceHeight}
+              focus={value.focus}
+              onChange={moveCover}
+              disabled={busy}
+              spec={SPEC}
+              label="배경이미지"
+              hint="흰 틀을 끌어 배경이미지로 보여줄 부분을 골라 주세요."
+            />
+          </div>
+        )}
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
 
